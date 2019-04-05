@@ -1,0 +1,14 @@
+LICENSE
+MANIFEST.in
+README.rst
+setup.cfg
+setup.py
+census/__init__.py
+census/core.py
+census.egg-info/PKG-INFO
+census.egg-info/SOURCES.txt
+census.egg-info/dependency_links.txt
+census.egg-info/requires.txt
+census.egg-info/top_level.txt
+census/tests/__init__.py
+census/tests/test_census.py
