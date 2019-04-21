@@ -162,6 +162,8 @@ def assign_block_groups_to_districts(bg_df, dist_df, output_file):
     return output_df
             
 #%%
+
+#%%
 for congress in [112, 113, 114, 115, 116]:
     for st in FIPS:
         bg_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/block_groups_with_pop/shapes.shp'
