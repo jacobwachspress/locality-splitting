@@ -11,47 +11,47 @@ import pandas as pd
 from shapely.ops import cascaded_union
 from rtree import index
 
-def get_county_district_intersections(counties, districts):
-    ''' Finds geometric intersections of counties and districts
+def get_county_district_intersections(c_df, d_df, county_str):
+    ''' Finds geometric intersections of c_df and d_df
     
     Arguments: 
-        counties: GeoDataFrame of the counties in a state
-        districts: GeoDataFrame of the districts in a state
+        c_df: GeoDataFrame of the counties in a state
+        d_df: GeoDataFrame of the d_df in a state
+        county_str: name of county column in c_df
         
     Output: dictionary whose keys are ordered pairs (county, district)
         and whose values are the geometries corresponding to the intersections.
-        County and district names are not preserved, indices are whole numbers.
+
     '''
-    
     # initialize dictionary to be returned
     intersections = {}
     
     # initialize r-tree index
     idx = index.Index()
     
-    # populate R-tree index with bounds of counties
-    for i, county in counties.iterrows():
+    # populate R-tree index with bounds of c_df
+    for i, county in c_df.iterrows():
         idx.insert(i, county['geometry'].bounds)
     
     # find intersections
-    for j, district in districts.iterrows():
-        for i, county in counties.iterrows():
+    for j, district in d_df.iterrows():
+        for i, county in c_df.iterrows():
             county_geom = county['geometry']
             district_geom = district['geometry']
             # use rtree to quickly eliminate many cases
             if i not in idx.intersection(district_geom.bounds):
-                intersections[(i, j)] = None
+                intersections[(county[county_str], j)] = None
             else:
                 intersection = county_geom.intersection(district_geom)
                 if intersection.is_empty:
-                    intersections[(i, j)] = None
+                    intersections[(county[county_str], j)] = None
                 else:
-                    intersections[(i, j)] = intersection
+                    intersections[(county[county_str], j)] = intersection
                     
     
     return intersections
 
-def get_pops_of_intersections(intersections, block_groups, pop_str):
+def get_pops_of_intersections(intersections, b_df, county_str, pop_str):
     ''' Calculates population of each county-district intersection,
     based on block group populations.
     
@@ -60,9 +60,9 @@ def get_pops_of_intersections(intersections, block_groups, pop_str):
             a dictionary whose keys are ordered pairs (county, district)
             and whose values are the geometries corresponding to the 
             intersections.
-        block_groups: GeoDataFrame of the block_groups in a state
-        pop_str: the name of the column in block_groups that contains 
-            population data (type: string)
+        b_df: GeoDataFrame of the census blocks in a state
+        county_str: name of county column in c_df
+        pop_str: the name of the population column in b_df
         
     Output: dictionary whose keys are ordered pairs (county, district)
         and whose values are the populations within these intersections.
@@ -70,11 +70,11 @@ def get_pops_of_intersections(intersections, block_groups, pop_str):
     Note: There is some imprecision associated with this function.  If a 
         district boundary splits a block group, then there is no way to assign
         the members of the block group to their district(s) with certainty. 
-        (Luckily,all block groups are in exactly one county.)  When a 
+        (Luckily, all block groups are in exactly one county.)  When a 
         block group is split, we assign population by area, which is the best
-        proxy wew have for population.
+        proxy we have for population.
         
-        Furthermore, since the district shapefiles from the census drawn 
+        Furthermore, since the district shapefiles from the census are drawn 
         separately from the block group files (i.e. there are no block group
         equivalency files), it may be the case that the districts do not
         entirely cover a block group.  In this case, we assign the population
@@ -86,73 +86,84 @@ def get_pops_of_intersections(intersections, block_groups, pop_str):
     pops = {}
     for key in intersections:
         pops[key] = 0
+        
+       
+    # iterate over counties
+    counties = list(set([key[0] for key in intersections]))
     
-    # initialize r-tree index
-    idx = index.Index()
-    
-    # populate R-tree index with bounds of block groups
-    for i, blk_grp in block_groups.iterrows():
-        idx.insert(i, blk_grp['geometry'].bounds)
-    
-    # iterate over block groups
-    for i, blk_grp in block_groups.iterrows():
+    for county in counties:
         
-        # get blk_grp data once 
-        blk_grp_geom = blk_grp['geometry']
-        blk_grp_area = blk_grp_geom.area
-        blk_grp_pop = int(blk_grp[pop_str])
+        # initialize list for used blocks
+        used = []
         
-        # initialize dictionary for population updates
-        blk_grp_pops = {}
+        # cut down the block dataframe to what is necessary
+        cblocks_df = b_df.loc[b_df[county_str] == county]
         
-        # iterate over county-district pairs
-        for key in intersections:
-            # get geometry of county-district intersection
-            geom = intersections[key]
-            if geom is not None:
-                bounds = geom.bounds
-                # use rtree to filter out a whole bunch of cases
-                if i in idx.intersection(bounds):
-                    # get intersection of block group with county-district
-                    # overlap, will be zero or entire block group most of the
-                    # time, if block group is split, assume population is 
-                    # uniform over area
-                    
-                    intersect_area = geom.intersection(blk_grp_geom).area
-                    proportion = intersect_area/blk_grp_area
-                    # population to add
-                    blk_grp_pops[key] = blk_grp_pop * proportion
-        
-        # scale for intersections not found (so no population is lost)
-        # this is a source of error: if the district shp does not cover all the
-        # block groups, we can't assign the people in the block group with
-        # certainty, so we scale this by the people already found
-        found_pop = sum(blk_grp_pops.values())
-        if found_pop > 0:
-            for d in blk_grp_pops:
-                blk_grp_pops[d] = blk_grp_pops[d] * blk_grp_pop / found_pop
+        # shortcut if county is not split
+        county_intersections = [key for key in pops if key[0] == county]
+        if len(county_intersections) == 1:
+            intersection = county_intersections[0]
+            block_pops = list(cblocks_df.loc[:, pop_str])
+            pops[intersection] = pops[intersection] + sum(block_pops)
+            
+        else:
+            
+            # initialize r-tree index
+            idx = index.Index()
+            
+            # populate R-tree index with bounds of block groups
+            for i, block in cblocks_df.iterrows():
+                idx.insert(i, block['geometry'].bounds)
+            
+            # iterate over block groups
+            for i, block in cblocks_df.iterrows():
                 
-        # update populations
-        for d in blk_grp_pops:
-            pops[d] = pops[d] + blk_grp_pops[d]
-
+                # get block data once 
+                block_geom = block['geometry']
+                block_area = block_geom.area
+                block_pop = int(block[pop_str])                                
+     
+                for key in county_intersections:
+                    # get geometry of county-district intersection
+                    geom = intersections[key]
+                    if geom is not None:
+                        bounds = geom.bounds
+                        # use rtree to filter out a whole bunch of cases
+                        if i not in used and i in idx.intersection(bounds):
+                            # get intersection of block group with county-district
+                            # overlap, will be zero or entire block group most of the
+                            # time, if block group is split, assume population is 
+                            # uniform over area
+                            
+                            intersect_area = geom.intersection(block_geom).area
+                            proportion = intersect_area/block_area
+                            # population to add
+                            pop_to_add = block_pop * proportion
+                            pops[key] = pops[key] + pop_to_add
+                            # mark as used
+                            if proportion > 0.99:
+                                used.append(i)
+                
     # remove keys with no population
     to_remove = [key for key in pops if pops[key] == 0]
     for key in to_remove:
         pops.pop(key, None)
-    
-    return pops
+    return intersections, pops
 
-def county_district_intersection_pops(counties, districts, \
-                                      block_groups, pop_str):
+def county_district_intersection_pops(c_df, d_df, b_df, \
+                                      b_county_str='COUNTYFP10',\
+                                      c_county_str='COUNTYFP10',\
+                                      pop_str='POP10'):
     ''' Calculates population of each county-district intersection,
     based on appropriate GeoDataFrames and block group populations.
     
     Arguments: 
-        counties: GeoDataFrame of the counties in a state
-        districts: GeoDataFrame of the districts in a state
-        block_groups: GeoDataFrame of the block_groups in a state
-        pop_str: the name of the column in block_groups that contains 
+        c_df: GeoDataFrame of the counties in a state
+        d_df: GeoDataFrame of the districts in a state
+        b_df: GeoDataFrame of the blocks in a state
+        b_county_str: name of county column in b_df
+        c_county_str: name of county column in c_df
+        pop_str: the name of the column in b_df that contains 
             population data (type: string)
             
     Output: dictionary whose keys are ordered pairs (county, district)
@@ -160,24 +171,23 @@ def county_district_intersection_pops(counties, districts, \
         County and district names are not preserved, indices are whole numbers.
     '''
     
-    intersections = get_county_district_intersections(counties, districts)
-    return get_pops_of_intersections(intersections, block_groups, pop_str)
+    intersections = get_county_district_intersections(c_df, d_df, c_county_str)
+    return get_pops_of_intersections(intersections, b_df, b_county_str, pop_str)
 
-def counties_from_block_groups(block_groups, county_str):
+def counties_from_blocks(b_df, county_str):
     ''' Generates county GeoDataFrame (geometries only) based on block group
     GeoDataFrame.
     
     Arguments:
-        block_groups: GeoDataFrame of the block_groups in a state
-        county_str: the name of the column in block_groups that contains 
-            the ID of the county (type: string)
+        b_df: GeoDataFrame of the blocks in a state
+        county_str: name of county column in b_df
             
     Output: GeoDataFrame with geometries of all counties in the state
     '''
-    counties = list(set(block_groups.loc[:, county_str]))
+    counties = list(set(b_df.loc[:, county_str]))
     geometries = []
     for county in counties:
-        in_county = block_groups.loc[block_groups[county_str] == county]
+        in_county = b_df.loc[b_df[county_str] == county]
         geometries.append(cascaded_union(list(in_county.loc[:, 'geometry'])))
     df = pd.DataFrame(counties)
     return gpd.GeoDataFrame(df, geometry=geometries)
