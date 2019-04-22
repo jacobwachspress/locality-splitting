@@ -117,12 +117,26 @@ def shannon_entropy(partition):
     logs = normalized * np.log2(normalized)
     return (- np.sum(logs))
 
-# based on this: https://tel.archives-ouvertes.fr/tel-00176776/document
-# described in english here: https://www.cs.umb.edu/~dsim/papersps/umb.pdf 
-# (slides 19-21)
     
 def lopez_de_mantaras(pops):
-    
+    ''' Calculates Lopez de Mantaras metric, summing 
+        1) conditional entropy of district partition with repsect to county 
+        partition 
+        2) conditional entropy of county partition with repsect to district 
+        partition 
+        
+        based on this: https://tel.archives-ouvertes.fr/tel-00176776/document
+        described in english here: https://www.cs.umb.edu/~dsim/papersps/umb.pdf 
+        (slides 19-21)
+        
+    Arguments: 
+        pops: dictionary whose keys are ordered pairs (county, district)
+        and whose values are the populations within these intersections.
+            
+    Output: 
+        Reciprocal of Lopez de Mantaras metric, so more similar parititions
+        yield a higher number'''
+        
     # get population of state
     state_pop = sum(pops.values())
     
