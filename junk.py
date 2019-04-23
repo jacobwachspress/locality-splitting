@@ -16,16 +16,15 @@ from scripts import counties_from_block_groups
 #%%
 # source: http://code.activestate.com/recipes/577775-state-fips-codes-dict/
 FIPS = {
-    'WA': '53', 'DE': '10', 'DC': '11', 'WI': '55', 'WV': '54', 'HI': '15',
-    'FL': '12', 'WY': '56', 'NJ': '34', 'NM': '35', 'TX': '48',
-    'LA': '22', 'NC': '37', 'ND': '38', 'NE': '31', 'TN': '47', 'NY': '36',
-    'PA': '42', 'AK': '02', 'NV': '32', 'NH': '33', 'VA': '51', 'CO': '08',
-    'CA': '06', 'AL': '01', 'AR': '05', 'VT': '50', 'IL': '17', 'GA': '13',
-    'IN': '18', 'IA': '19', 'MA': '25', 'AZ': '04', 'ID': '16', 'CT': '09',
-    'ME': '23', 'MD': '24', 'OK': '40', 'OH': '39', 'UT': '49', 'MO': '29',
-    'MN': '27', 'MI': '26', 
-    'RI': '44', 'KS': '20', 'MT': '30', 'MS': '28',
-    'SC': '45', 'KY': '21', 'OR': '41', 'SD': '46'
+    'WA': '53', 'DE': '10', 'WI': '55', 'WV': '54', 'HI': '15',
+    'FL': '12', 'WY': '56', 'NJ': '34', 'NM': '35', 'TX': '48', 'LA': '22', 
+    'NC': '37', 'ND': '38', 'NE': '31', 'TN': '47', 'NY': '36', 'PA': '42', 
+    'AK': '02', 'NV': '32', 'NH': '33', 'VA': '51', 'CO': '08', 'CA': '06', 
+    'AL': '01', 'AR': '05', 'VT': '50', 'IL': '17', 'GA': '13', 'IN': '18', 
+    'IA': '19', 'MA': '25', 'AZ': '04', 'ID': '16', 'CT': '09', 'ME': '23', 
+    'MD': '24', 'OK': '40', 'OH': '39', 'UT': '49', 'MO': '29', 'MN': '27', 
+    'MI': '26', 'RI': '44', 'KS': '20', 'MT': '30', 'MS': '28', 'SC': '45', 
+    'KY': '21', 'OR': '41', 'SD': '46'
 }
 #%%
 
@@ -366,7 +365,7 @@ def read_congressional_district_shapefiles(maps, output_path, state_id):
     for plan in maps:
         
         # read in file to geodataframe
-        geo_df = gpd.read_file(maps[plan])
+        geo_df = zipped_shapefile_to_geo_df(maps[plan])
         
         # trim geo_df to actual districts (removing territories, unassigned
         # "districts," and other weird data artifacts)
@@ -396,7 +395,28 @@ def read_congressional_district_shapefiles(maps, output_path, state_id):
                 if not os.path.isdir(directory):
                     os.mkdir(directory)
                 state_df.to_file(directory + '/' + plan + '.shp')
+                count = count + len(state_df)
                 
+#%%
+urls = {}
+old_urls = {}
+tiger_path = 'https://www2.census.gov/geo/tiger/'
+old_tiger_path = 'https://www2.census.gov/geo/tiger/PREVGENZ/cd/'
+urls['2018_congress'] = tiger_path + 'TIGER2018/CD/tl_2018_us_cd116.zip'
+urls['2016_congress'] = tiger_path + 'TIGER2017/CD/tl_2017_us_cd115.zip'
+urls['2014_congress'] = tiger_path + 'TIGER2015/CD/tl_2015_us_cd114.zip'
+urls['2012_congress'] = tiger_path + 'TIGER2013/CD/tl_2013_us_cd113.zip'
+urls['2010_congress'] = tiger_path + 'TIGER2011/CD/tl_2011_us_cd112.zip'
+urls['2008_congress'] = tiger_path + 'TIGER2010/CD/111/tl_2010_us_cd111.zip'
+urls['2006_congress'] = old_tiger_path + 'cd110shp/cd99_110_shp.zip'
+urls['2004_congress'] = old_tiger_path + 'cd109shp/cd99_109_shp.zip'
+urls['2002_congress'] = old_tiger_path + 'cd108shp/cd99_108_shp.zip'
+urls['2000_congress'] = old_tiger_path + 'cd108shp/cd99_108_shp.zip'
+urls['1998_congress'] = old_tiger_path + 'cd107shp/cd99_107_shp.zip'
+
+state_ids = 
+
+
 #%%
 def download_census_block_files(output_path):
     

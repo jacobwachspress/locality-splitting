@@ -68,8 +68,8 @@ def get_pops_of_intersections(intersections, b_df, county_str, pop_str):
         and whose values are the populations within these intersections.
     
     Note: There is some imprecision associated with this function.  If a 
-        district boundary splits a block group, then there is no way to assign
-        the members of the block group to their district(s) with certainty. 
+        district boundary splits a block, then there is no way to assign
+        the members of the block to their district(s) with certainty. 
         (Luckily, all block groups are in exactly one county.)  When a 
         block group is split, we assign population by area, which is the best
         proxy we have for population.
