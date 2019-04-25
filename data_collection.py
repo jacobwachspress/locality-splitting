@@ -7,72 +7,47 @@ Created on Sun Apr 21 22:05:47 2019
 import urllib.request
 import zipfile
 import os
+from os.path import basename
 import shutil
 import geopandas as gpd
 from geoprocessing import counties_from_blocks
-#%%
-# source: http://code.activestate.com/recipes/577775-state-fips-codes-dict/
-FIPS = {
-    'WA': '53', 'DE': '10', 'WI': '55', 'WV': '54', 'HI': '15',
-    'FL': '12', 'WY': '56', 'NJ': '34', 'NM': '35', 'TX': '48',
-    'LA': '22', 'NC': '37', 'ND': '38', 'NE': '31', 'TN': '47', 'NY': '36',
-    'PA': '42', 'AK': '02', 'NV': '32', 'NH': '33', 'VA': '51', 'CO': '08',
-    'CA': '06', 'AL': '01', 'AR': '05', 'VT': '50', 'IL': '17', 'GA': '13',
-    'IN': '18', 'IA': '19', 'MA': '25', 'AZ': '04', 'ID': '16', 'CT': '09',
-    'ME': '23', 'MD': '24', 'OK': '40', 'OH': '39', 'UT': '49', 'MO': '29',
-    'MN': '27', 'MI': '26', 
-    'RI': '44', 'KS': '20', 'MT': '30', 'MS': '28',
-    'SC': '45', 'KY': '21', 'OR': '41', 'SD': '46'
-}
-#%%
+import tempfile
 
-def read_congressional_district_shapefiles(maps, output_path, \
-                                           state_id='STATEFP'):
-    ''' Reads congressional district shapefiles and separates them by
-    state.
+def read_in_shapefiles_state_by_state(output_path, urls, name):
+    ''' Downloads state shapefiles to desired location
     
     Arguments: 
-        maps: dictionary whose keys are the names of the districting plan
-            (e.g. 112_congress) and whose values are the full file paths
-            where the corresponding shapefile lies
-        output_path: folder where state-by-state shapefiles should go
-        state_id: column in attribute table that contains FIPS code
-            (operates under assumption that this is the same for all maps)
+        output_path: folder to write shapefiles. By convention, ENDS IN '/'.
+            (example: 'C:/Users/Jacob/Desktop/JP/2010/')
+        urls: dictionarys where keys are two-digit abbreviations for states 
+            and values are urls of zipped shapefiles
+        name: for saving the file
+        
+    Note: we are hard-coding in the URLs from the census
+        
+    Output:
+        GeoDataFrame corresponding to the shapefile in the zip folder 
     '''
-    for plan in maps:
-        
-        # read in file to geodataframe
-        geo_df = gpd.read_file(maps[plan])
-        
-        # trim geo_df to actual districts (removing territories, unassigned
-        # "districts," and other weird data artifacts)
-        geo_df = geo_df.loc[geo_df['FUNCSTAT'] == 'N']
-        geo_df =  geo_df.loc[int(geo_df['GEOID']) % 100 <= 53]
-        
-        # check that this worked
-        if (len(geo_df) != 435):
-            raise Exception('CD shapefile at ' + plan + ' has ' + \
-                            str(len(geo_df)) + ' elements after cleaning')
-        
-        # get FIPS of all states included in shapefile
-        df_FIPS = list(set(geo_df.loc[:, state_id]))
-        df_FIPS = [int(i) for i in df_FIPS]
-        
-        # separate shapefiles by state
-        for state in FIPS:
-            fips = int(FIPS[state])
-            # check if this state is in the shapefile (maybe needed for DC, PR)
-            if fips in df_FIPS:
-                
-                # trim df for appropriate rows
-                state_df = geo_df.loc[int(geo_df[state_id]) == fips]
-                
-                # save file to appropriate location
-                directory = output_path + state
-                if not os.path.isdir(directory):
-                    os.mkdir(directory)
-                state_df.to_file(directory + '/' + plan + '.shp')
-                
+    failed = []
+    for state in urls:
+        try:
+            # read in file
+            file = urls[state]	
+            
+            # get GeoDataFrame from file
+            geo_df = zipped_shapefile_to_geo_df(file)
+            
+            # write census block shapefile
+            if not os.path.isdir(output_path + state):
+                os.mkdir(output_path + state)
+            geo_df.to_file(output_path + state + '/' + name + '.shp')
+        except Exception as e:
+            print(e)
+            failed.append(state)
+    print (name)
+    print (failed)
+
+    
 #%%
 def download_census_block_files(output_path, states=FIPS, pop_str='POP10',\
                                 name='2010_blocks'):
@@ -92,22 +67,43 @@ def download_census_block_files(output_path, states=FIPS, pop_str='POP10',\
         GeoDataFrame corresponding to the shapefile in the zip folder 
     '''
     for state in states:
-        # read in file
-        file = 'https://www2.census.gov/geo/tiger/TIGER2010BLKPOPHU/' + \
-               'tabblock2010_' + FIPS[state] + '_pophu.zip'	
-        
-        # get GeoDataFrame from file
-        geo_df = zipped_shapefile_to_geo_df(file)
-        
-        # delete census blocks with no population
-        geo_df = geo_df.loc[geo_df[pop_str] > 0]
-        
-        # write census block shapefile
-        if not os.path.isdir(output_path + state):
-            os.mkdir(output_path + state)
-        geo_df.to_file(output_path + state + '/' + name + '.shp')
+        try:
+            # read in file
+            file = 'https://www2.census.gov/geo/tiger/TIGER2010BLKPOPHU/' + \
+                   'tabblock2010_' + FIPS[state] + '_pophu.zip'	
+            
+            # get GeoDataFrame from file
+            geo_df = zipped_shapefile_to_geo_df(file)
+            
+            # delete census blocks with no population
+            geo_df = geo_df.loc[geo_df[pop_str] > 0]
+            
+            # write census block shapefile
+            if not os.path.isdir(output_path + state):
+                os.mkdir(output_path + state)
+            geo_df.to_file(output_path + state + '/' + name + '.shp')
+        except:
+            print ('Failed: ' + str(state))
 
-#%%      
+#%% 
+def zip_shapefile(filepath):
+    ''' Replaces shapefile (and all components) with .zip file
+    
+    Arguments:
+        filepath: everything before .shp, such as:
+            'C:/Users/Jacob/Documents/GitHub/county-splits/Data/AL/2010_blocks'
+        '''
+            
+    extensions = ['.cpg', '.dbf', '.prj', '.shp', '.shx']         
+    files_to_zip = [filepath + ext for ext in extensions]
+    with zipfile.ZipFile(filepath + '.zip','w') as zip: 
+        # writing each file one by one 
+        for file in files_to_zip: 
+            zip.write(file, basename(file))
+        for file in files_to_zip: 
+            os.remove(file)
+
+#%%
 def zipped_shapefile_to_geo_df(file_URL):
     ''' Downloads zipped shapefile and turns it into a GeoDataFrame
     
@@ -118,6 +114,7 @@ def zipped_shapefile_to_geo_df(file_URL):
         GeoDataFrame corresponding to the shapefile in the zip folder 
         (assumption is that there is just one .shp file)
     '''
+    
     # set temporary directory to download zip file
     tempfile.TemporaryDirectory()
     output_path = tempfile.gettempdir() + '\\temp'
@@ -127,19 +124,27 @@ def zipped_shapefile_to_geo_df(file_URL):
     # read in file
     file_loc = output_path + '\\temp.zip'
     urllib.request.urlretrieve(file_URL, file_loc)
+    urllib.request.urlcleanup()
 
     # unzip
     zip_ref = zipfile.ZipFile(file_loc, 'r')
     zip_ref.extractall(output_path)
     zip_ref.close()
     
+    for file in os.listdir(output_path):
+        if file[-4:] == '.cpg':
+            os.remove(output_path + '\\' + file)
+    
     # get geo_df from shapefile
     shapefiles = [file for file in os.listdir(output_path) if \
                   file[-4:] == '.shp']
+    print (shapefiles)
     if (len(shapefiles) != 1):
+        shutil.rmtree(output_path)
         raise Exception("Not exactly one shapefile in zip folder. See  " + \
                         str(output_path))
     shp = shapefiles[0]
+
     geo_df = gpd.read_file(output_path + '\\' + shp)
     
     # remove temporary folder
@@ -163,4 +168,4 @@ def separate_national_shp_into_states(geo_df, state_id, output_path, name):
         if not os.path.isdir(output_path + st):
             os.mkdir(output_path + st)
         out_df.to_file(output_path + st + '/' + name + '.shp')
-    
+#%%

@@ -192,6 +192,45 @@ def counties_from_blocks(b_df, county_str):
     df = pd.DataFrame(counties)
     return gpd.GeoDataFrame(df, geometry=geometries)
 
+def left_position(geom):
+    return geom.bounds[0]
+def same_plan(d_df1, d_df2, precision=0.01):
+    try:
+        geos1 = d_df1.loc[:, 'geometry']
+        geos2 = d_df2.loc[:, 'geometry']
+        geos1 = sorted(geos1, key = left_position)
+        geos2 = sorted(geos2, key = left_position)
+        
+        if len(geos1) == 1 and len(geos2) == 1:
+            return True
+        if len(geos1) != len(geos2):
+            return False
+        intersections1 = [geos1[i].intersection(geos2[i]).area/geos1[i].area 
+                         for i in range(len(geos1))]
+        intersections2 = [geos2[i].intersection(geos1[i]).area/geos2[i].area 
+                         for i in range(len(geos2))]
+        for i in intersections1:
+            if i < 1 - precision or i > 1 + precision:
+                return False
+        for i in intersections2:
+            if i < 1 - precision or i > 1 + precision:
+                return False
+        return True
+    except:
+        return False
+        
+def need_to_check(folder, maps):
+    d = []
+    for i in range(len(maps)):
+        if i == 0:
+            d.append(maps[i])
+        else:
+            df = gpd.read_file(folder + maps[i])
+            df_last = gpd.read_file(folder + maps[i-1])
+            if not same_plan(df, df_last):
+                d.append(maps[i])
+    return d
+
 
 
     

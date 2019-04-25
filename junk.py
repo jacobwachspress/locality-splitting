@@ -12,7 +12,8 @@ import time
 from census import Census
 import pickle
 import geopandas as gpd
-from scripts import counties_from_block_groups
+from geoprocessing import counties_from_block_groups
+from data_collection import read_in_shapefiles_state_by_state
 #%%
 # source: http://code.activestate.com/recipes/577775-state-fips-codes-dict/
 FIPS = {
@@ -162,37 +163,182 @@ def assign_block_groups_to_districts(bg_df, dist_df, output_file):
     return output_df
             
 #%%
-for congress in [112, 113, 114, 115, 116]:
-    for st in FIPS:
-        bg_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/block_groups_with_pop/shapes.shp'
-        dist_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/' + str(congress) + '_congress/shapes.shp'
-        bg_df = gpd.read_file(bg_file)
-        dist_df = gpd.read_file(dist_file)
-        output_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/' + str(congress) + '_congress/block_groups.pkl'
-        assign_block_groups_to_districts(bg_df, dist_df, output_file)
-        
 #%%
-for congress in [108, 109, 110, 111]:
-    for st in FIPS:
-        bg_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/block_groups_with_pop/shapes.shp'
-        
-        # get dist_file
-        for file in os.listdir('C:/Users/Jacob/Desktop/JP/2000/' + st + '/' + str(congress) + '_congress'):
-            if file[-4:] == '.shp':
-                dist_file = 'C:/Users/Jacob/Desktop/JP/2000/' + st + '/' + str(congress) + '_congress/' + file
-        bg_df = gpd.read_file(bg_file)
-        dist_df = gpd.read_file(dist_file)
-        output_file = 'C:/Users/Jacob/Desktop/JP/2010/' + st + '/' + str(congress) + '_congress/block_groups.pkl'
-        if not os.path.isdir('C:/Users/Jacob/Desktop/JP/2010/' + st + '/' + str(congress)+ '_congress'):
-            os.mkdir('C:/Users/Jacob/Desktop/JP/2010/' + st + '/' + str(congress)+ '_congress')
-        assign_block_groups_to_districts(bg_df, dist_df, output_file)
-        
+# source: http://code.activestate.com/recipes/577775-state-fips-codes-dict/
+FIPS = {
+    'WA': '53', 'DE': '10', 'WI': '55', 'WV': '54', 'HI': '15',
+    'FL': '12', 'WY': '56', 'NJ': '34', 'NM': '35', 'TX': '48',
+    'LA': '22', 'NC': '37', 'ND': '38', 'NE': '31', 'TN': '47', 'NY': '36',
+    'PA': '42', 'AK': '02', 'NV': '32', 'NH': '33', 'VA': '51', 'CO': '08',
+    'CA': '06', 'AL': '01', 'AR': '05', 'VT': '50', 'IL': '17', 'GA': '13',
+    'IN': '18', 'IA': '19', 'MA': '25', 'AZ': '04', 'ID': '16', 'CT': '09',
+    'ME': '23', 'MD': '24', 'OK': '40', 'OH': '39', 'UT': '49', 'MO': '29',
+    'MN': '27', 'MI': '26', 
+    'RI': '44', 'KS': '20', 'MT': '30', 'MS': '28',
+    'SC': '45', 'KY': '21', 'OR': '41', 'SD': '46'
+}
+
 #%%
-for st in FIPS:
-    df = gpd.read_file('C:/Users/Jacob/Desktop/JP/2010/' + st + '/block_groups_with_pop/shapes.shp')
-    good = len(df.loc[df['P001001'] != None])
-    total = len(df)
-    print(st + ' ' + str(good/total))
+states = {
+        'AK': 'Alaska',
+        'AL': 'Alabama',
+        'AR': 'Arkansas',
+        'AZ': 'Arizona',
+        'CA': 'California',
+        'CO': 'Colorado',
+        'CT': 'Connecticut',
+        'DE': 'Delaware',
+        'FL': 'Florida',
+        'GA': 'Georgia',
+        'HI': 'Hawaii',
+        'IA': 'Iowa',
+        'ID': 'Idaho',
+        'IL': 'Illinois',
+        'IN': 'Indiana',
+        'KS': 'Kansas',
+        'KY': 'Kentucky',
+        'LA': 'Louisiana',
+        'MA': 'Massachusetts',
+        'MD': 'Maryland',
+        'ME': 'Maine',
+        'MI': 'Michigan',
+        'MN': 'Minnesota',
+        'MO': 'Missouri',
+        'MS': 'Mississippi',
+        'MT': 'Montana',
+        'NC': 'North Carolina',
+        'ND': 'North Dakota',
+        'NE': 'Nebraska',
+        'NH': 'New Hampshire',
+        'NJ': 'New Jersey',
+        'NM': 'New Mexico',
+        'NV': 'Nevada',
+        'NY': 'New York',
+        'OH': 'Ohio',
+        'OK': 'Oklahoma',
+        'OR': 'Oregon',
+        'PA': 'Pennsylvania',
+        'RI': 'Rhode Island',
+        'SC': 'South Carolina',
+        'SD': 'South Dakota',
+        'TN': 'Tennessee',
+        'TX': 'Texas',
+        'UT': 'Utah',
+        'VA': 'Virginia',
+        'VT': 'Vermont',
+        'WA': 'Washington',
+        'WI': 'Wisconsin',
+        'WV': 'West Virginia',
+        'WY': 'Wyoming'
+}
+#%%
+
+def read_congressional_district_shapefiles(output_path, \
+                                           state_id='STATEFP'):
+    ''' Reads congressional district shapefiles and separates them by
+    state.
+    
+    Arguments: 
+        output_path: folder where state-by-state shapefiles should go
+        state_id: column in attribute table that contains FIPS code
+            (operates under assumption that this is the same for all maps)
+    '''
+    urls = {}
+    tiger_path = 'https://www2.census.gov/geo/tiger/'
+#    urls['2018_congress'] = tiger_path + 'TIGER2018/CD/tl_2018_us_cd116.zip'
+#    urls['2016_congress'] = tiger_path + 'TIGER2017/CD/tl_2017_us_cd115.zip'
+#    urls['2014_congress'] = tiger_path + 'TIGER2015/CD/tl_2015_us_cd114.zip'
+#    urls['2012_congress'] = tiger_path + 'TIGER2013/CD/tl_2013_us_cd113.zip'
+#    urls['2010_congress'] = tiger_path + 'TIGER2011/CD/tl_2011_us_cd112.zip'
+    urls['2008_congress'] = tiger_path + 'TIGER2010/CD/111/tl_2010_us_cd111.zip'
+    
+    maps = {}
+    for key in urls:
+        maps[key] = zipped_shapefile_to_geo_df(urls[key])
+    
+    for plan in maps:
+        
+        # get geodataframe
+        geo_df = maps[plan]
+        
+        # trim geo_df to actual districts (removing territories, unassigned
+        # "districts," and other weird data artifacts)
+        for i, cd in geo_df.iterrows():
+            if int(str(cd['GEOID10'])[-2:]) % 100 > 53:
+                geo_df = geo_df.drop(i)
+                
+        # check that this worked
+        if (len(geo_df) != 435):
+            raise Exception('CD shapefile at ' + plan + ' has ' + \
+                            str(len(geo_df)) + ' elements after cleaning')
+        
+        # get FIPS of all states included in shapefile
+        df_FIPS = list(set(geo_df.loc[:, state_id]))
+        
+        # separate shapefiles by state
+        for state in FIPS:
+            fips = FIPS[state]
+            # check if this state is in the shapefile (maybe needed for DC, PR)
+            if fips in df_FIPS:
+                
+                # trim df for appropriate rows
+                state_df = geo_df.loc[geo_df[state_id] == fips]
+                
+                # save file to appropriate location
+                directory = output_path + state
+                if not os.path.isdir(directory):
+                    os.mkdir(directory)
+                state_df.to_file(directory + '/' + plan + '.shp')
+        
+ #%%
+def read_old_congressional_district_shapefiles(output_path, \
+                                           state_id='STATENAME'):
+    ''' Reads congressional district shapefiles and separates them by
+    state.
+    
+    Arguments: 
+        output_path: folder where state-by-state shapefiles should go
+        state_id: column in attribute table that contains FIPS code
+            (operates under assumption that this is the same for all maps)
+    '''
+    old_urls = {}
+    old_tiger_path = 'http://cdmaps.polisci.ucla.edu/shp/'
+    old_urls['1998_congress'] = old_tiger_path + 'districts105.zip'
+    
+    maps = {}
+    for key in old_urls:
+        maps[key] = zipped_shapefile_to_geo_df(old_urls[key])
+    
+    for plan in maps:
+        
+        # get geodataframe
+        geo_df = maps[plan]
+
+        
+        # get FIPS of all states included in shapefile
+        df_FIPS = list(set(geo_df.loc[:, state_id]))
+        
+        # check that we have 435
+        counts = [len(geo_df.loc[geo_df[state_id] == fips]) for fips in states.values()]
+        if (sum(counts) != 435):
+            raise Exception('CD shapefile at ' + plan + ' has ' + \
+                            str(sum(counts)) + ' elements after cleaning')
+        
+        # separate shapefiles by state
+        for state in states:
+            fips = states[state]
+            # check if this state is in the shapefile (maybe needed for DC, PR)
+            if True:
+                
+                # trim df for appropriate rows
+                state_df = geo_df.loc[geo_df[state_id] == fips]
+                
+                # save file to appropriate location
+                directory = output_path + state
+                if not os.path.isdir(directory):
+                    os.mkdir(directory)
+                state_df.to_file(directory + '/' + plan + '.shp')       
+                
 #%%
 merge_id = ['GEO_ID']
 output_path = 'C:/Users/Jacob/Desktop/JP/2010/'
@@ -231,78 +377,78 @@ download_files(congress_108, 'C:/Users/Jacob/Desktop/JP/2010/', '/108_congress')
 upper_leg_2017 = {}
 for st in FIPS:
     upper_leg_2017[st] = 'http://www2.census.gov/geo/tiger/GENZ2017/shp/cb_2017_' + FIPS[st] + '_sldu_500k.zip'
-download_files(upper_leg_2017, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2017')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2017, '2017_upper_leg')
+
 lower_leg_2017 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2017[st] = 'http://www2.census.gov/geo/tiger/GENZ2017/shp/cb_2017_'+FIPS[st]+'_sldl_500k.zip'
-download_files(lower_leg_2017, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2017')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2017, '2017_lower_leg')
+
 upper_leg_2016 = {}
 for st in FIPS:
     upper_leg_2016[st] = 'http://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_' + FIPS[st] + '_sldu_500k.zip'
-download_files(upper_leg_2016, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2016')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2016, '2016_upper_leg')
+
 lower_leg_2016 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2016[st] = 'http://www2.census.gov/geo/tiger/GENZ2016/shp/cb_2016_'+FIPS[st]+'_sldl_500k.zip'
-download_files(lower_leg_2016, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2016')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2016, '2016_lower_leg')
+
 upper_leg_2015 = {}
 for st in FIPS:
     upper_leg_2015[st] = 'http://www2.census.gov/geo/tiger/GENZ2015/shp/cb_2015_' + FIPS[st] + '_sldu_500k.zip'
-download_files(upper_leg_2015, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2015')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2015, '2015_upper_leg')
+
 lower_leg_2015 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2015[st] = 'http://www2.census.gov/geo/tiger/GENZ2015/shp/cb_2015_'+FIPS[st]+'_sldl_500k.zip'
-download_files(lower_leg_2015, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2015')
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2015, '2015_lower_leg')
 #%%
 upper_leg_2014 = {}
-for st in FIPS:
+for st in ['SD']:
     upper_leg_2014[st] = 'http://www2.census.gov/geo/tiger/GENZ2014/shp/cb_2014_' + FIPS[st] + '_sldu_500k.zip'
-download_files(upper_leg_2014, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2014')
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2014, '2014_upper_leg')
 #%%
 lower_leg_2014 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2014[st] = 'http://www2.census.gov/geo/tiger/GENZ2014/shp/cb_2014_'+FIPS[st]+'_sldl_500k.zip'
-download_files(lower_leg_2014, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2014')
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2014, '2014_lower_leg')
 #%%
 upper_leg_2013 = {}
 for st in FIPS:
     upper_leg_2013[st] = 'http://www2.census.gov/geo/tiger/GENZ2013/cb_2013_' + FIPS[st] + '_sldu_500k.zip'
-download_files(upper_leg_2013, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2013')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2013, '2013_upper_leg')
+
 lower_leg_2013 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2013[st] = 'http://www2.census.gov/geo/tiger/GENZ2013/cb_2013_'+FIPS[st]+'_sldl_500k.zip'
-download_files(lower_leg_2013, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2013')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2013, '2013_lower_leg')
+
 upper_leg_2010 = {}
 for st in FIPS:
     upper_leg_2010[st] = 'http://www2.census.gov/geo/tiger/GENZ2010/gz_2010_' + FIPS[st] + '_610_u2_500k.zip'
-download_files(upper_leg_2010, 'C:/Users/Jacob/Desktop/JP/2010/', '/upper_leg_2010')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2010, '2010_upper_leg')
+
 lower_leg_2010 = {}
 for st in FIPS:
     if st is not 'NE' and st is not 'DC':
         lower_leg_2010[st] = 'http://www2.census.gov/geo/tiger/GENZ2010/gz_2010_'+FIPS[st]+'_620_l2_500k.zip'
-download_files(lower_leg_2010, 'C:/Users/Jacob/Desktop/JP/2010/', '/lower_leg_2010')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2010, '2010_lower_leg')
+
 upper_leg_2006 = {}
 for st in FIPS:
     upper_leg_2006[st] = 'http://www2.census.gov/geo/tiger/PREVGENZ/su/su06shp/su' + FIPS[st] + '_d11_shp.zip'
-download_files(upper_leg_2006, 'C:/Users/Jacob/Desktop/JP/2000/', '/upper_leg_2006')
-#%%
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2006, '2006_upper_leg')
+
 lower_leg_2006 = {}
 for st in FIPS:
     lower_leg_2006[st] = 'http://www2.census.gov/geo/tiger/PREVGENZ/sl/sl06shp/sl' + FIPS[st] + '_d11_shp.zip'
-download_files(lower_leg_2006, 'C:/Users/Jacob/Desktop/JP/2000/', '/lower_leg_2006')
+read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2006, '2006_lower_leg')
 #%%
 block_groups_2010 = {}
 for st in FIPS:
