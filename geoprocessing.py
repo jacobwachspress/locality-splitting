@@ -39,13 +39,9 @@ def get_county_district_intersections(c_df, d_df, county_str):
             county_geom = county['geometry']
             district_geom = district['geometry']
             # use rtree to quickly eliminate many cases
-            if i not in idx.intersection(district_geom.bounds):
-                intersections[(county[county_str], j)] = None
-            else:
+            if i in idx.intersection(district_geom.bounds):
                 intersection = county_geom.intersection(district_geom)
-                if intersection.is_empty:
-                    intersections[(county[county_str], j)] = None
-                else:
+                if not intersection.is_empty:
                     intersections[(county[county_str], j)] = intersection
                     
     
