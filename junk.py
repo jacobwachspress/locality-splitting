@@ -14,6 +14,7 @@ import pickle
 import geopandas as gpd
 from geoprocessing import counties_from_block_groups
 from data_collection import read_in_shapefiles_state_by_state
+import sys
 #%%
 # source: http://code.activestate.com/recipes/577775-state-fips-codes-dict/
 FIPS = {
@@ -408,7 +409,7 @@ for st in FIPS:
 read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', lower_leg_2015, '2015_lower_leg')
 #%%
 upper_leg_2014 = {}
-for st in ['SD']:
+for st in FIPS:
     upper_leg_2014[st] = 'http://www2.census.gov/geo/tiger/GENZ2014/shp/cb_2014_' + FIPS[st] + '_sldu_500k.zip'
 read_in_shapefiles_state_by_state('C:/Users/Jacob/Documents/GitHub/county-splits/Data/', upper_leg_2014, '2014_upper_leg')
 #%%

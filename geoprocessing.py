@@ -8,6 +8,7 @@ Created on Sat Mar 16 17:46:38 2019
 import shapely as shp
 import geopandas as gpd
 import pandas as pd
+import json
 from shapely.ops import cascaded_union
 from rtree import index
 
@@ -201,10 +202,12 @@ def same_plan(d_df1, d_df2, precision=0.01):
             return True
         if len(geos1) != len(geos2):
             return False
-        intersections1 = [geos1[i].intersection(geos2[i]).area/geos1[i].area 
+        intersections = [geos1[i].intersection(geos2[i]).area \
                          for i in range(len(geos1))]
-        intersections2 = [geos2[i].intersection(geos1[i]).area/geos2[i].area 
-                         for i in range(len(geos2))]
+        intersections1 = [intersections[i]/geos1[i].area \
+                         for i in range(len(geos1))]
+        intersections2 = [intersections[i]/geos2[i].area \
+                         for i in range(len(geos1))]
         for i in intersections1:
             if i < 1 - precision or i > 1 + precision:
                 return False
@@ -215,18 +218,29 @@ def same_plan(d_df1, d_df2, precision=0.01):
     except:
         return False
         
-def need_to_check(folder, maps):
-    d = []
-    for i in range(len(maps)):
-        if i == 0:
-            d.append(maps[i])
-        else:
-            df = gpd.read_file(folder + maps[i])
-            df_last = gpd.read_file(folder + maps[i-1])
-            if not same_plan(df, df_last):
-                d.append(maps[i])
-    return d
-
+# to save as json
+def dict_to_json(pops, output_file):
+    # make keys strings
+    output_pops = {}
+    for key in pops:
+        output_pops[f'C{key[0]}D{key[1]}'] = pops[key]
+    # write json
+    with open(output_file, 'w') as fp:
+        json.dump(output_pops, fp)
+        
+def json_to_dict(input_file):
+    # read json
+    with open(input_file, 'r') as fp:
+        string_key_dict = json.load(fp)
+    # make keys ordered pairs
+    output_dict = {}
+    for key in string_key_dict:
+        D = key.index('D')
+        output_dict[(key[1:D], key[D+1:])] = string_key_dict[key]
+    return output_dict
+        
+    
+        
 
 
     

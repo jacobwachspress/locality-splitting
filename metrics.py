@@ -6,6 +6,33 @@ Created on Sat Apr  6 15:13:31 2019
 """
 import numpy as np
 
+def threshold(pops, threshold=50):
+    ''' Remove elements of a dictionary with values below a certain threshold.
+    
+    Arguments: 
+        pops: dictionary whose keys are ordered pairs (county, district)
+            and whose values are the populations within these intersections.
+        threshold: vlaue below which we filter out
+            
+    Output: 
+        thresholded pops dictionary
+    '''
+    keys_to_remove = [key for key in pops if pops[key] < threshold]
+    for key in keys_to_remove:
+        pops.pop(key, None)
+    return pops
+        
+def split_counties(pops):
+    counties = set([key[0] for key in pops])
+    
+    split_counties = [1 for county in counties \
+                      if len([key for key in pops if key[0] == county]) > 1]
+    
+    return sum(split_counties)
+
+def non_empty_county_district_pairs(pops):
+    return len(pops)
+    
 # RENAME THIS METRIC
 # Some research shows this is from Rand (1971) and Wallace (1983)
 def population_informed_county_split_statistic(pops):
@@ -21,42 +48,21 @@ def population_informed_county_split_statistic(pops):
         two randomly chosen people from the same county are also
         in the same district.'''
     
+    # get number of pairs in same county and same district
+    same_county_same_district = sum([i*(i-1)/2 for i in pops.values()])
+    
     # get counties
     counties = set([key[0] for key in pops])
     
-    ## calculate number of pairs of people in the same county and same district
-    
-    # intitialize variable
-    same_county_same_district = 0
-     
-    for county in counties:
-        intersections_in_county = [key for key in pops if key[0] == county]
-        for intersection in intersections_in_county:
-            # get number of people in county-district intersection
-            shared_pop = pops[intersection]
-            # update number of pairs in same county and same district
-            new_pairs = (shared_pop * (shared_pop - 1)) / 2
-            same_county_same_district = same_county_same_district + new_pairs
-            
-    ## calculate number of pairs of people in the same county 
-    
-    # intitialize variable
-    same_county = 0
-    
-    for county in counties:
-        # get population of county
-        county_pop = 0
-        intersections_in_county = [key for key in pops if key[0] == county]
-        for intersection in intersections_in_county:
-            county_pop = county_pop + pops[intersection]
-        
-        # update number of pairs in same county
-        new_pairs = (county_pop * (county_pop - 1)) / 2
-        same_county = same_county + new_pairs
+    # get number of pairs in same county
+    county_pops = [sum([pops[key] for key in pops if key[0] == county]) \
+                   for county in counties] 
+    same_county = sum([i*(i-1)/2 for i in county_pops])
             
     ## calculate and return PICS
     PICS = same_county_same_district / same_county
     return PICS
+    
         
 # Adaptation of criterion here https://doi.org/10.1080/01621459.1954.10501231
 def goodman_kruskal_statistic(pops):  
@@ -78,90 +84,39 @@ def goodman_kruskal_statistic(pops):
     # get counties
     counties = set([key[0] for key in pops])
     
-    # initialize variables
-    state_pop = 0
-    in_largest_district = 0
+    # get size of largest intersection in each county
+    county_maxes = [max([pops[key] for key in pops if key[0] == county]) \
+                   for county in counties] 
     
-    for county in counties:
-        # get list of populations intersections in county
-        intersections_in_county = [key for key in pops if key[0] == county]
-        intersection_pops = [pops[i] for i in intersections_in_county]
-        
-        # find county population
-        county_pop = sum(intersection_pops)
-        # find number of people in largest intersection
-        max_district_pop = max(intersection_pops)
-        
-        # update global variables
-        state_pop = state_pop + county_pop
-        in_largest_district = in_largest_district + max_district_pop
-        
-    # calculate and return statistic
-    GK = in_largest_district / state_pop
+    # calculate and return GK
+    GK = sum(county_maxes) / sum(pops.values())
     return GK
     
-def shannon_entropy(partition):
-    ''' Calculates Shannon entropy of a partition according to the formula
     
-         - sum (p_i log_2 p_i)
-         
-        where p_i is the probability of being in the ith element of the 
-        partition.
-    
-    Arguments:
-        partition: numpy array containing the number of elements in each part
-        
-    Output: Shannon entropy'''
-    
-    normalized = partition / np.sum(partition)
-    logs = normalized * np.log2(normalized)
-    return (- np.sum(logs))
-
-    
-def lopez_de_mantaras(pops):
-    ''' Calculates Lopez de Mantaras metric, summing 
-        1) conditional entropy of district partition with repsect to county 
-        partition 
-        2) conditional entropy of county partition with repsect to district 
-        partition 
-        
-        based on this: https://tel.archives-ouvertes.fr/tel-00176776/document
-        described in english here: https://www.cs.umb.edu/~dsim/papersps/umb.pdf 
-        (slides 19-21)
+def min_entropy(pops):
+    ''' Calculates conditional entropy of district partition with respect to 
+        county partition 
         
     Arguments: 
         pops: dictionary whose keys are ordered pairs (county, district)
         and whose values are the populations within these intersections.
             
     Output: 
-        Reciprocal of Lopez de Mantaras metric, so more similar parititions
+        Reciprocal of conditional entropy, so more similar parititions
         yield a higher number'''
         
-    # get population of state
-    state_pop = sum(pops.values())
+    # get counties
+    counties = set([key[0] for key in pops])
     
-    # initialize variable for metric
-    total = 0
-    
-    # CALCULATE CONDITIONAL ENTROPY OF EACH PARTITION WITH RESPECT TO 
-    # THE OTHER
-    
-    # indexing over both counties and districts
-    for x in [0,1]:
+    # compile lists to sum
+    county_entropies = []
+    for county in counties:
+        districts = [key for key in pops if key[0] == county]
+        county_size = sum([pops[key] for key in districts])
+        county_entropy = sum([pops[key] * np.log2(pops[key]/county_size) \
+                          for key in districts])
+        county_entropies.append(county_entropy)
         
-        # get counties or districts (depending on x)
-        regions = set([key[x] for key in pops])
-        
-        for region in regions:
-            # get list of populations intersections in county
-            intersections_in_region = [key for key in pops if key[x] == region]
-            intersection_pops = [pops[i] for i in intersections_in_region]
-            
-            # find region population
-            region_pop = sum(intersection_pops)
-            
-            # update statistic
-            total = total + shannon_entropy(intersection_pops) * \
-                    region_pop/state_pop
-    
-    return np.divide(1, total)
+    # calcuate conditional entropy, return reciprocal
+    c_entropy = (-1) * sum(county_entropies) / sum(pops.values())
+    return 1/(1+c_entropy)
