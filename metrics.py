@@ -22,7 +22,7 @@ def threshold(pops, threshold=50):
         pops.pop(key, None)
     return pops
         
-def split_counties(pops):
+def counties_split(pops):
     counties = set([key[0] for key in pops])
     
     split_counties = [1 for county in counties \
@@ -30,21 +30,21 @@ def split_counties(pops):
     
     return sum(split_counties)
 
-def non_empty_county_district_pairs(pops):
+def county_intersections(pops):
     return len(pops)
     
 # RENAME THIS METRIC
 # Some research shows this is from Rand (1971) and Wallace (1983)
-def population_informed_county_split_statistic(pops):
-    ''' Calculates PICS statistic given population intersections between
-    districts and counties
+def preserved_pairs(pops):
+    ''' Calculates preserved_pairs given population intersections 
+    between districts and counties
     
     Arguments: 
         pops: dictionary whose keys are ordered pairs (county, district)
         and whose values are the populations within these intersections.
             
     Output: 
-        PICS statistic (number between 0 and 1): the probability that 
+        preserved_pairs (number between 0 and 1): the probability that 
         two randomly chosen people from the same county are also
         in the same district.'''
     
@@ -65,8 +65,8 @@ def population_informed_county_split_statistic(pops):
     
         
 # Adaptation of criterion here https://doi.org/10.1080/01621459.1954.10501231
-def goodman_kruskal_statistic(pops):  
-    ''' Calculates GK statistic given population intersections between
+def largest_intersection(pops):  
+    ''' Calculates largest_intersection given population intersections between
     districts and counties
     
     Arguments: 
@@ -75,9 +75,9 @@ def goodman_kruskal_statistic(pops):
             
             
     Output: 
-        GK statistic (number between 0 and 1): the fraction of voters who are
-        in the congressional district that has the largest number of their
-        county's voters.  Alternatively, if everyone assumed that 
+        largest_intersection (number between 0 and 1): the fraction of voters 
+        who are in the congressional district that has the largest number of 
+        their county's voters.  Alternatively, if everyone assumed that 
         their congressional district was the one with the largest number
         of their county's residents, the proportion who would be correct.'''
     
@@ -102,7 +102,7 @@ def min_entropy(pops):
         and whose values are the populations within these intersections.
             
     Output: 
-        Reciprocal of conditional entropy, so more similar parititions
+        min_entropy, scaled to be in (0,1) such that more similar parititions
         yield a higher number'''
         
     # get counties
