@@ -1,2 +1,5 @@
 Data/*
 *.pyc
+*.csv
+*.ipynb
+*.zip
