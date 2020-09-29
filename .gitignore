@@ -3,3 +3,6 @@ Data/*
 *.csv
 *.ipynb
 *.zip
+clean_data/*
+extract_census/*
+raw_census.*
