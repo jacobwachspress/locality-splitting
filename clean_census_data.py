@@ -1,5 +1,6 @@
 """Clean all relevant census data."""
 import os
+import pandas as pd
 import geopandas as gpd
 from pull_census_data import state_fips
 
@@ -28,14 +29,68 @@ def main():
     split_congressional_districts(fips)
 
     # Move state legislative districts
-    # move_state_legislative_districts()
+    move_state_legislative_districts(fips)
 
     # Join census data
-    # join_census_geo_and_pop()
+    join_census_geo_and_pop(fips)
+    return
 
-    # Remove duplicative boundaries
-    # remove_duplicative_boundaries()
 
+def join_census_geo_and_pop(fips):
+    """Join census block geometries with census block populations."""
+    # Display step
+    print('JOINING CENSUS BLOCK POPULATIONS AND GEOGRAPHIES\n\n')
+    
+    for state, fips_code in fips.items():
+        # Get the output path and join and save if it doesn't already exist
+        output_path = 'clean_data/' + state + '/' + state + '_blocks.shp'
+        if not os.path.exists(output_path):
+            print(output_path)
+            # Load geodataframe
+            geo_path = 'extract_census/block_geo/block_geography_' + state
+            geo_path += '/tl_2019_' + fips_code + '_tabblock10.shp'
+            df_geo = gpd.read_file(geo_path)
+
+            # Load population data
+            pop_path = 'raw_census/block_pop/block_population_'
+            pop_path += state + '.csv'
+            df_pop = pd.read_csv(pop_path)
+
+            # Remove unnecessary columns in population data
+            df_pop['GEOID10'] = df_pop['GEO_ID'].apply(lambda x:
+                                                       x.split('US')[1])
+            df_pop['pop'] = df_pop['H010001']
+            df_pop = df_pop[['GEOID10', 'pop']]
+
+            # Join geo data and population data
+            df = df_geo.merge(df_pop)
+
+            # Save
+            df.to_file(output_path)
+    return
+
+
+def move_state_legislative_districts(fips):
+    """Move state legislative districts into relevant state files."""
+    # Display step
+    print('MOVING STATE LEGISLATIVE DISTRICTS\n\n')
+
+    # Iterate through the extracted state legislative file
+    folders = os.listdir('extract_census/state_leg')
+    for folder in folders:
+        # Get the files in the folder then the shapefile name
+        direc = 'extract_census/state_leg/' + folder + '/'
+        file = os.listdir(direc)[0][:-4] + '.shp'
+
+        # Get new name and directory for file
+        comp = folder.split('_')
+        new_name = comp[1] + '_' + comp[0] + '_' + comp[2] + '.shp'
+        output_direc = 'clean_data/' + comp[1] + '/'
+
+        if not os.path.exists(output_direc + new_name):
+            print(new_name)
+            df = gpd.read_file(direc + file)
+            df.to_file(output_direc + new_name)
     return
 
 
@@ -79,7 +134,6 @@ def split_counties(fips):
                 print(output)
                 df_state = df_us[df_us[fips_col] == fips_code]
                 df_state.to_file(output)
-
     return
 
 

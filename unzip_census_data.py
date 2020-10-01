@@ -24,7 +24,7 @@ def main():
     extract_entire_directory(raw + 'county', ex + 'county')
 
     # Extract block geographies
-    # extract_entire_directory(raw + 'block_geo', ex + 'block_geo')
+    extract_entire_directory(raw + 'block_geo', ex + 'block_geo')
     return
 
 

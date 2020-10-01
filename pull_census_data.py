@@ -35,7 +35,7 @@ def main():
     extract_state_legislative_boundaries(fips)
 
     # Extract block data geographies
-    # extract_census_block_geographies(fips)
+    extract_census_block_geographies(fips)
 
     # Load census key if it exists
     census_key = False
