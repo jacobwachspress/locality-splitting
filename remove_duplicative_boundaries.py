@@ -40,6 +40,10 @@ def remove_duplicative_boundaries(fips, level):
         # Sort list to make sure years are aligned
         files.sort()
 
+        # Continue if nebraska lower chamber
+        if state == 'NE' and level == 'sldl':
+            continue
+
         # Get the file that we know is an original plan
         keep_geo = files[0]
         df_keep = gpd.read_file(direc + keep_geo)

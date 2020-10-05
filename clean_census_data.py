@@ -25,14 +25,14 @@ def main():
     create_state_directories(fips)
 
     # Split nationwide files into state files
-    split_counties(fips)
+    # split_counties(fips)
     split_congressional_districts(fips)
 
     # Move state legislative districts
     move_state_legislative_districts(fips)
 
     # Join census data
-    join_census_geo_and_pop(fips)
+    # join_census_geo_and_pop(fips)
     return
 
 
@@ -40,7 +40,7 @@ def join_census_geo_and_pop(fips):
     """Join census block geometries with census block populations."""
     # Display step
     print('JOINING CENSUS BLOCK POPULATIONS AND GEOGRAPHIES\n\n')
-    
+
     for state, fips_code in fips.items():
         # Get the output path and join and save if it doesn't already exist
         output_path = 'clean_data/' + state + '/' + state + '_blocks.shp'
@@ -91,6 +91,7 @@ def move_state_legislative_districts(fips):
             print(new_name)
             df = gpd.read_file(direc + file)
             df.to_file(output_direc + new_name)
+
     return
 
 
@@ -177,6 +178,8 @@ def split_congressional_districts(fips):
                 print(output)
                 df_state = df_us[df_us[fips_col] == fips_code]
                 df_state.to_file(output)
+
+            break
 
     return
 
