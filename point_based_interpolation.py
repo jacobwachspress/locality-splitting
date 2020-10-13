@@ -1,7 +1,8 @@
-"""Interpolate District Boundaries onto Block Data."""
+"""Labeling Census Blocks by Districts Using Block Lat/Long."""
 import pandas as pd
 import geopandas as gpd
 import os
+from shapely.geometry import Point
 from pull_census_data import state_fips
 from county_district_interpolation import district_attribute
 from county_district_interpolation import distribute_label
@@ -14,7 +15,7 @@ def main():
 
     # Iterate over each state
     for state, fips_code in fips.items():
-        if state != 'WY':
+        if state != 'AK':
             continue
         # Get the base bath to the state folder
         base_path = 'clean_data/' + state + '/'
@@ -26,8 +27,10 @@ def main():
         # Load district and county containment dataframes
         county_path = base_path + state + '_district_contains_county.csv'
         df_county = pd.read_csv(county_path)
-        district_path = base_path + state + '_district_contains_district.csv'
-        df_district = pd.read_csv(district_path)
+
+        # Load in district county intersections
+        inter_path = base_path + state + '_district_county_intersection.csv'
+        df_inter = pd.read_csv(inter_path)
 
         # Get the relevant redistricting plans
         files = os.listdir(base_path)
@@ -65,50 +68,26 @@ def main():
             df_county_plan = reduce_county_contains(df_county, district_year)
             df = df.merge(df_county_plan, on='COUNTYFP10', how='left')
 
-            df.to_file('wy_test_county.shp')
-            print('County Finished')
-            # # Iterate through files before this file. This will tell us which
-            # # districts of already classified plans are subsets of districts
-            # # of the current plan
-            # for prev_file in files[:file_ix]:
-            #     print(prev_file)
-            #     # Get the previous file district year
-            #     prev_district_year = get_district_year(prev_file)
-            #
-            #     # Continue if previous district year is not in dataframe
-            #     if prev_district_year not in df.columns:
-            #         continue
-            #
-            #     # Get dataframe to join previous district years to
-            #     d = df_district[df_district['base'] == prev_district_year]
-            #     d = d[['base_value', district_year]]
-            #     d[prev_district_year] = d['base_value']
-            #     d[district_year + '_contain'] = d[district_year]
-            #     d = d.drop(columns=['base_value', district_year])
-            #
-            #     # Merge, fillna, and drop contain value
-            #     df = df.merge(df, on=prev_district_year, how='left')
-            #     fill = district_year + '_contain'
-            #     df[district_year] = df[district_year].fillna(df[fill])
-            #     df = df.drop(fill, axis=1)
-            #
-            # print('Previous Files')
-            #
-            # # Split blocks into classified and unclassified
-            # df_classified = df[df[district_year].notna()]
-            # df_unclassified = df[df[district_year].isna()]
-            #
-            # # Show progress and load redistricting plan
-            # print('INTERPOLATING', file, len(df_classified),
-            #       len(df_unclassified), '\n')
-            # df_plan = gpd.read_file(base_path + file)
-            #
-            # # Distribute label to unclassified blocks
-            # dist_col = district_attribute(district_year)
-            # df_unclassified = distribute_label(df_plan, [dist_col],
-            #                                    df_unclassified,
-            #                                    [district_year], progress=1000)
-            #
+            # Reduce county district intersection plan
+            df_inter_plan = reduce_district_county_intersection(df_inter,
+                                                                district_year)
+
+            # Split blocks into classified and unclassified
+            df_classified = df[df[district_year].notna()]
+            df_unclassified = df[df[district_year].isna()]
+
+            # Show progress and load redistricting plan
+            print('INTERPOLATING', file, len(df_classified),
+                  len(df_unclassified), '\n')
+            df_plan = gpd.read_file(base_path + file)
+            print(df_plan.head())
+            # Distribute label to unclassified blocks
+            dist_col = district_attribute(district_year)
+            df_unclassified = distribute_label_points(df_plan, dist_col,
+                                                      df_unclassified,
+                                                      district_year,
+                                                      df_inter_plan)
+
             # # Save classifications and district only
             # district_cols = set(district_years).intersection(set(df.columns))
             # district_cols = list(district_cols)
@@ -125,6 +104,35 @@ def main():
     return
 
 
+def distribute_label_points(df_plan, plan_col, df_blocks, block_col, df_inter):
+    """Distribute label into census blocks."""
+    # Join intersecting districts
+    df_blocks = df_blocks.merge(df_inter, how='left', on='COUNTYFP10')
+
+    print(df_blocks.head())
+    # Fill na with all districts
+    all_districts = ','.join(df_plan[plan_col].to_list())
+    cd = 'check_districts'
+    df_blocks[cd] = df_blocks[cd].fillna(all_districts)
+    df_blocks[cd] = df_blocks[cd].apply(lambda x: x.split(','))
+
+    # Iterate over each census block
+    for ix, row in df_blocks.iterrows():
+        print(ix + 1, '/', len(df_blocks))
+        # Create point
+        c = row['geometry'].centroid
+
+        # Reduce current plan to districts we should be checking
+        df_current = df_plan[df_plan[plan_col].isin(row['check_districts'])]
+
+        # Iterate through districts
+        for plan_ix, plan_row in df_current.iterrows():
+            if plan_row['geometry'].contains(c):
+                df_blocks.at[ix, block_col] = plan_row[plan_col]
+                break
+    return df_blocks
+
+
 def reduce_county_contains(df, district_year):
     """Reduce county contains to a single district year.
 
@@ -134,6 +142,16 @@ def reduce_county_contains(df, district_year):
     df['COUNTYFP10'] = df['COUNTYFP']
     df['COUNTYFP10'] = df['COUNTYFP10'].astype(str).str.zfill(3)
     df = df[['COUNTYFP10', district_year]]
+    return df
+
+
+def reduce_district_county_intersection(df, district_year):
+    """Reduce county district intersections contains to a single district year.
+    """
+    df['COUNTYFP10'] = df['COUNTYFP']
+    df['COUNTYFP10'] = df['COUNTYFP10'].astype(str).str.zfill(3)
+    df['check_districts'] = df[district_year]
+    df = df[['COUNTYFP10', 'check_districts']]
     return df
 
 
