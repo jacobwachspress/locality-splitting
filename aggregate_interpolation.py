@@ -22,7 +22,7 @@ def main():
                                   ['state', 'COUNTYFP'])
     df_dcd = aggregate_nationwide(fips, 'district_contains_district',
                                   ['state', 'base', 'base_value'])
-    df_dci = aggregate_nationwide(fips, 'district_country_intersection',
+    df_dci = aggregate_nationwide(fips, 'district_county_intersection',
                                   ['state', 'COUNTYFP'])
 
     # Save aggregated files
