@@ -1,4 +1,9 @@
-"""Remove Duplicative Geographic Boundaries."""
+"""Remove Duplicative Shapefiles.
+
+We load redistricting plans for every year according to the census. However,
+plans do not change every year. This prevents unnecessary processing downstream
+in the pipeline.
+"""
 import os
 import geopandas as gpd
 from pull_census_data import state_fips

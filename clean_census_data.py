@@ -8,7 +8,7 @@ from pull_census_data import state_fips
 def main():
     """Clean all census data in preparation for analysis
 
-    We start by creating new folders
+    We start by creating new folders in a clean_data directory
 
     Next, we split nationwide shapefiles into statewide shapefiles
 

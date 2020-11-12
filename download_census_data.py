@@ -1,4 +1,4 @@
-"""Extract relevant census data from tigerline."""
+"""Download relevant census geography and population data."""
 import urllib.request as url
 import requests
 import os
