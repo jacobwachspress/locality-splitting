@@ -2,7 +2,7 @@
 import geopandas as gpd
 import pandas as pd
 import numpy as np
-from pull_census_data import state_fips
+from download_census_data import state_fips
 
 
 def main():

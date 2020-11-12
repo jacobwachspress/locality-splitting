@@ -8,7 +8,7 @@ the entire state.
 """
 import geopandas as gpd
 import os
-from pull_census_data import state_fips
+from download_census_data import state_fips
 from county_district_interpolation import district_attribute
 from county_district_interpolation import get_district_year
 

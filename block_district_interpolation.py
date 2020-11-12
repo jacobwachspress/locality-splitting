@@ -3,7 +3,7 @@ import pandas as pd
 import geopandas as gpd
 import os
 import numpy as np
-from pull_census_data import state_fips
+from download_census_data import state_fips
 from county_district_interpolation import district_attribute
 from county_district_interpolation import distribute_label
 from county_district_interpolation import get_district_year
