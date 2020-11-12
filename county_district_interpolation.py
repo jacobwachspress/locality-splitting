@@ -1,7 +1,11 @@
 """Interpolate District Boundaries onto County Boundaries.
 
 Creating a dataframe that matches county fips to districts only if
-the county is fully contained by the district
+the county is fully contained by the district.
+
+This will assist in the block level interpolation because we can assign
+any blocks within the county to the district minimizing the amount of
+geographic matching required.
 """
 import pandas as pd
 import geopandas as gpd

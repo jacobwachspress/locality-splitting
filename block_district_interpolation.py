@@ -1,10 +1,8 @@
-"""Labeling Census Blocks by Districts Using Block Lat/Long."""
+"""Assisgning redistricting plan districts to each census block."""
 import pandas as pd
 import geopandas as gpd
 import os
-import re
 import numpy as np
-from shapely.geometry import Point
 from pull_census_data import state_fips
 from county_district_interpolation import district_attribute
 from county_district_interpolation import distribute_label

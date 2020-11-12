@@ -2,7 +2,9 @@
 
 Creating a dataframe that matches a district boundary fips with other district
 boundaries fips if they are fully contained. This will speed up the census
-block interpolation
+block interpolation districts because we can assign all blocks within the
+subdistrict to the district minimizing the amount of individual geography
+matchings required.
 """
 import pandas as pd
 import geopandas as gpd

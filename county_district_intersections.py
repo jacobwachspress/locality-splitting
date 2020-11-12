@@ -1,13 +1,15 @@
 """Intersections between districts and counties.
 
-Get which districts intersect with which counties
+Get which districts intersect with which counties.
+
+This will speed up the block level interpolation because we can reduce
+to counties that intersect with each district rather than interpolating on
+the entire state.
 """
-import pandas as pd
 import geopandas as gpd
 import os
 from pull_census_data import state_fips
 from county_district_interpolation import district_attribute
-from county_district_interpolation import distribute_label
 from county_district_interpolation import get_district_year
 
 
@@ -53,7 +55,6 @@ def main():
             # Detect intersections
             df = county_district_intersections(df, district_year, df_dist,
                                                dist_col)
-
 
         # Save dataframe
         df = df[keep_cols]
