@@ -15,8 +15,10 @@ def main():
 
     # Iterate over each state
     for state, fips_code in fips.items():
-        if state != 'AK':
+        # Need to figure out error with connecticut
+        if state in ['MD', 'MT']:
             continue
+
         # Get the base bath to the state folder
         base_path = 'clean_data/' + state + '/'
 
@@ -55,52 +57,84 @@ def main():
 
         # Iterate through each redistricting plan
         for file_ix, file in enumerate(files):
-            print(file)
-            # Get the district level and year
-            district_year = get_district_year(file)
+            try:
+                # Get the district level and year
+                district_year = get_district_year(file)
 
-            # If redistricting plan has already been classified in the block
-            # file we can continue
-            if district_year in df.columns:
+                # If redistricting plan has already been classified in the block
+                # file we can continue
+                if district_year in df.columns:
+                    continue
+
+                # Reduce county contains dataframe and join
+                df_county_plan = reduce_county_contains(df_county, district_year)
+                df = df.merge(df_county_plan, on='COUNTYFP10', how='left')
+
+                # Reduce county district intersection plan
+                df_inter_plan = reduce_district_county_intersection(df_inter,
+                                                                    district_year)
+
+                # Split blocks into classified and unclassified
+                df_classified = df[df[district_year].notna()]
+                df_unclassified = df[df[district_year].isna()]
+
+                # Show progress and load redistricting plan
+                print('\nINTERPOLATING', file, len(df_classified),
+                      len(df_unclassified))
+                df_plan = gpd.read_file(base_path + file)
+
+                # Distribute label to unclassified blocks
+                dist_col = district_attribute(district_year)
+
+                #######################################
+                # Temporary continue to skip the files that have ZZZ
+                if 'ZZZ' in list(df_plan[dist_col].unique()):
+                    continue
+                if 'ZZ' in list(df_plan[dist_col].unique()):
+                    continue
+
+                if 'Z19' in list(df_plan[dist_col].unique()):
+                    continue
+
+                #######################################
+                df_unclassified = distribute_label_points(df_plan, dist_col,
+                                                          df_unclassified,
+                                                          district_year,
+                                                          df_inter_plan)
+
+                # Combine classified and unclassified
+                df_unclassified = df_unclassified.drop('check_districts', axis=1)
+                df = df_classified.append(df_unclassified)
+
+                # Split again into classified and unclassified to use distribute
+                # label on remaining unclassified
+                df_classified = df[df[district_year].notna()]
+                df_unclassified = df[df[district_year].isna()]
+
+                if len(df_unclassified) > 0:
+                    print('\tRemaining Classifications:', len(df_unclassified))
+                    # Distribute label
+                    df_unclassified = distribute_label(df_plan, [dist_col],
+                                                       df_unclassified,
+                                                       [district_year])
+                    # Append unclassified
+                    df = df_classified.append(df_unclassified)
+
+                # Get equivalency file for this plan
+                equiv_path = base_path + state + '_classifications_'
+                equiv_path += district_year + '.csv'
+                df_equiv = df[['GEOID10', district_year]]
+                df_equiv.to_csv(equiv_path, index=False)
+
+                # Save block equivalency file for all plans
+                print('\n\nSaving', state)
+                state_path = base_path + state + '_classifications.csv'
+                district_cols = set(district_years).intersection(set(df.columns))
+                df_state = df[['GEOID10', 'pop'] + list(district_cols)]
+                df_state.to_csv(state_path, index=False)
+            except:
                 continue
 
-            # Reduce county contains dataframe and join
-            df_county_plan = reduce_county_contains(df_county, district_year)
-            df = df.merge(df_county_plan, on='COUNTYFP10', how='left')
-
-            # Reduce county district intersection plan
-            df_inter_plan = reduce_district_county_intersection(df_inter,
-                                                                district_year)
-
-            # Split blocks into classified and unclassified
-            df_classified = df[df[district_year].notna()]
-            df_unclassified = df[df[district_year].isna()]
-
-            # Show progress and load redistricting plan
-            print('INTERPOLATING', file, len(df_classified),
-                  len(df_unclassified), '\n')
-            df_plan = gpd.read_file(base_path + file)
-            print(df_plan.head())
-            # Distribute label to unclassified blocks
-            dist_col = district_attribute(district_year)
-            df_unclassified = distribute_label_points(df_plan, dist_col,
-                                                      df_unclassified,
-                                                      district_year,
-                                                      df_inter_plan)
-
-            # # Save classifications and district only
-            # district_cols = set(district_years).intersection(set(df.columns))
-            # district_cols = list(district_cols)
-            # df = df[['GEOID10'] + district_cols]
-            # df.to_csv(base_path + state + '_classifications.csv', index=False)
-            # df.to_csv(base_path + state + '_' + district_year +
-            #           '_classifications.csv', index=False)
-            # df.to_csv(base_path + state + '_classifications_' + district_year +
-            #           '.csv', index=False)
-
-            break
-
-        break
     return
 
 
@@ -109,7 +143,6 @@ def distribute_label_points(df_plan, plan_col, df_blocks, block_col, df_inter):
     # Join intersecting districts
     df_blocks = df_blocks.merge(df_inter, how='left', on='COUNTYFP10')
 
-    print(df_blocks.head())
     # Fill na with all districts
     all_districts = ','.join(df_plan[plan_col].to_list())
     cd = 'check_districts'
@@ -118,7 +151,8 @@ def distribute_label_points(df_plan, plan_col, df_blocks, block_col, df_inter):
 
     # Iterate over each census block
     for ix, row in df_blocks.iterrows():
-        print(ix + 1, '/', len(df_blocks))
+        if (ix + 1) % 1000 == 0:
+            print('\t', ix + 1, '/', len(df_blocks))
         # Create point
         c = row['geometry'].centroid
 
@@ -153,7 +187,6 @@ def reduce_district_county_intersection(df, district_year):
     df['check_districts'] = df[district_year]
     df = df[['COUNTYFP10', 'check_districts']]
     return df
-
 
 
 if __name__ == "__main__":
