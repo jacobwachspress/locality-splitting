@@ -25,14 +25,14 @@ def main():
     create_state_directories(fips)
 
     # Split nationwide files into state files
-    # split_counties(fips)
+    split_counties(fips)
     split_congressional_districts(fips)
 
     # Move state legislative districts
     move_state_legislative_districts(fips)
 
     # Join census data
-    # join_census_geo_and_pop(fips)
+    join_census_geo_and_pop(fips)
     return
 
 

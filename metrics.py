@@ -1,130 +1,261 @@
-"""Calculate County Splits Metrics."""
+"""Calculate various county splits metrics."""
+import geopandas as gpd
+import pandas as pd
 import numpy as np
+from pull_census_data import state_fips
 
 
-def threshold(pops, threshold=50):
-    ''' Remove elements of a dictionary with values below a certain threshold.
+def main():
+    """Calculate the seven different metrics
 
-    Used for small district county intersections that are effectively
-    errors in the geographic files
+    Below are the names of the seven metrics. See docstrings below for more
+    in-depth descriptions
+
+        splits_all: counties_split using all blocks
+        splits_pop: counties_split using blocks with non-zero population
+        intersections_all: county_intersections using all blocks
+        intersections_pop: county_intersections using blocks with non-zero pop
+        preserved_pairs: see function
+        largest_intersection: see function
+        min_entropy: see function
+
+    Return dataframe for each metric."""
+    fips = state_fips()
+
+    # Initialize splits dataframe
+    df_splits = pd.DataFrame()
+
+    # Iterate over each state
+    for state, fips_code in fips.items():
+        # Show progress by state
+        print(state)
+
+        # Get relevant paths
+        direc = 'clean_data/' + state + '/'
+        class_path = direc + state + '_classifications.csv'
+        geo_path = direc + state + '_blocks.shp'
+
+        # Load classifications and block geographies
+        df = gpd.read_file(geo_path)
+        df_class = pd.read_csv(class_path)
+        df_class['GEOID10'] = df_class['GEOID10'].astype(str).str.zfill(15)
+        df_class = df_class.drop('pop', axis=1)
+        df = df.merge(df_class, on='GEOID10')
+
+        # Iterate through redistricting plans. Redistricting plans have
+        # underscore in name due to our naming convention
+        plans = [x for x in df.columns if '_' in x]
+        for plan in plans:
+            metrics = calculate_all_metrics(df, state, plan)
+            df_splits = df_splits.append(metrics, ignore_index=True)
+
+    # Sort
+    df_splits = df_splits.sort_values(by=['state', 'plan'])
+
+    # Save splits
+    df_splits.to_csv('splits_metrics.csv', index=False)
+
+    return
+
+
+def calculate_all_metrics(df, state, plan, cnty_str='COUNTYFP10'):
+    """Calculate all seven metrics and return in a dictionary."""
+    # Initialize dictionary with state and plan names
+    d = {}
+    d['state'] = state
+    d['plan'] = plan
+
+    # Calculate total number of counties split
+    d['splits_all'] = counties_split(df, plan, cnty_str, populated=False)
+    d['splits_pop'] = counties_split(df, plan, cnty_str)
+
+    # Calcualte total number of county district intersections
+    d['intersections_all'] = county_intersections(df, plan, cnty_str,
+                                                  populated=False)
+    d['intersections_pop'] = county_intersections(df, plan, cnty_str)
+
+    # Calculate three new metrics
+    d['preserved_pairs'] = preserved_pairs(df, plan, cnty_str)
+    d['largest_intersection'] = largest_intersection(df, plan, cnty_str)
+    d['min_entropy'] = minimum_entropy(df, plan, cnty_str)
+
+    return d
+
+
+def counties_split(df, plan, cnty_str='COUNTYFP10', populated=True):
+    """Calculate how many counties are split in a redistricting plan.
 
     Arguments:
-        pops: dictionary whose keys are ordered pairs (county, district)
-            and whose values are the populations within these intersections.
-        threshold: vlaue below which we filter out
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        populated: whether to remove census blocks with zero population
+
+        cnty_str: name of county attribute in the dataframe
 
     Output:
-        thresholded pops dictionary
-    '''
-    keys_to_remove = [key for key in pops if pops[key] < threshold]
-    for key in keys_to_remove:
-        pops.pop(key, None)
-    return pops
+        numeric of how many counties are split
+    """
+    # Remove blocks without population
+    if populated:
+        df = df[df['pop'] > 0]
+
+    # Drop duplicates between county and plan
+    df = df[[cnty_str, plan]].drop_duplicates()
+
+    # Aggregate number of county intersections
+    df = df.groupby(cnty_str).count()
+
+    # Get the number of counties that belong to more than one district
+    return len(df[df[plan] > 1])
 
 
-def counties_split(pops):
-    """Get the number of counties with splits"""
-    # Get set of all counties
-    counties = set([key[0] for key in pops])
-
-    # List of ones if county is split by the districts
-    split_counties = [1 for county in counties
-                      if len([key for key in pops if key[0] == county]) > 1]
-
-    return sum(split_counties)
-
-
-def county_intersections(pops):
-    """Get the total number of county district splits."""
-    return len(pops)
-
-
-def preserved_pairs(pops):
-    ''' Calculates preserved_pairs given population intersections
-    between districts and counties
+def county_intersections(df, plan, cnty_str, populated=True):
+    """Calculate the total number of county district splits.
 
     Arguments:
-        pops: dictionary whose keys are ordered pairs (county, district)
-        and whose values are the populations within these intersections.
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        populated: whether to remove census blocks with zero population
+
+        cnty_str: name of county attribute in the dataframe
 
     Output:
-        preserved_pairs (number between 0 and 1): the probability that
+        numeric of how many county district splits exist
+    """
+    df = df.copy()
+
+    # Remove blocks without population
+    if populated:
+        df = df[df['pop'] > 0]
+
+    # Drop duplicates between county and plan
+    df = df[[cnty_str, plan]].drop_duplicates()
+
+    # Aggregate number of county intersections
+    df = df.groupby(cnty_str).count()
+
+    # Return how many intersections
+    return df[plan].sum() - len(df)
+
+
+def preserved_pairs(df, plan, cnty_str):
+    """Calculate new preserved pairs metric.
+
+    Arguments:
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        cnty_str: name of county attribute in the dataframe
+
+    Output:
+        (number between 0 and 1): the probability that
         two randomly chosen people from the same county are also
         in the same district.
+    """
+    # Get amount of population by county district intersection
+    df_inter = df.groupby([cnty_str, plan])[['pop']].sum()
+    df_inter = df_inter.reset_index()
 
-        Some research shows this is from Rand (1971) and Wallace (1983)
-    '''
-    # get number of pairs in same county and same district
-    same_county_same_district = sum([i * (i - 1) / 2 for i in pops.values()])
+    # Get the population per county
+    df_county = df.groupby([cnty_str])[['pop']].sum()
+    df_county = df_county.reset_index()
 
-    # get counties
-    counties = set([key[0] for key in pops])
+    # Get number of connections between people with the same county & district
+    df_inter['connections'] = df_inter['pop'] * (df_inter['pop'] - 1) / 2
+    inter_connections = df_inter['connections'].sum()
 
-    # get number of pairs in same county
-    county_pops = [sum([pops[key] for key in pops if key[0] == county])
-                   for county in counties]
-    same_county = sum([i * (i - 1) / 2 for i in county_pops])
+    # Get the number of connections between people with the same county
+    df_county['connections'] = df_county['pop'] * (df_county['pop'] - 1) / 2
+    county_connections = df_county['connections'].sum()
 
-    # calculate and return PICS
-    PICS = same_county_same_district / same_county
-    return PICS
+    # Get the preserved pairs metric
+    return inter_connections / county_connections
 
 
-def largest_intersection(pops):
-    ''' Calculates largest_intersection given population intersections between
-    districts and counties
+def largest_intersection(df, plan, cnty_str):
+    """Calculate new largest intersection metric.
 
     Arguments:
-        pops: dictionary whose keys are ordered pairs (county, district)
-        and whose values are the populations within these intersections.
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
 
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        cnty_str: name of county attribute in the dataframe
 
     Output:
-        largest_intersection (number between 0 and 1): the fraction of voters
+        (number between 0 and 1): the fraction of voters
         who are in the congressional district that has the largest number of
         their county's voters.  Alternatively, if everyone assumed that
         their congressional district was the one with the largest number
         of their county's residents, the proportion who would be correct.
+    """
+    # Get the population by county district intersection
+    df_inter = df.groupby([cnty_str, plan])[['pop']].sum()
+    df_inter = df_inter.reset_index()
 
-    # Adaptation of criterion here
-        https://doi.org/10.1080/01621459.1954.10501231
-    '''
-    # get counties
-    counties = set([key[0] for key in pops])
+    # Get the intersection with the maximum population
+    df_max = df_inter.groupby(cnty_str)[['pop']].max()
 
-    # get size of largest intersection in each county
-    county_maxes = [max([pops[key] for key in pops if key[0] == county])
-                    for county in counties]
+    # max population intersection total population
+    total_max_population = df_max['pop'].sum()
 
-    # calculate and return GK
-    GK = sum(county_maxes) / sum(pops.values())
-    return GK
+    # population of entire state
+    total_population = df['pop'].sum()
+
+    # return largest intersection metric
+    return total_max_population / total_population
 
 
-def min_entropy(pops):
-    ''' Calculates conditional entropy of district partition with respect to
-        county partition
+def minimum_entropy(df, plan, cnty_str):
+    """Calculate new minimum entropy metric.
 
     Arguments:
-        pops: dictionary whose keys are ordered pairs (county, district)
-        and whose values are the populations within these intersections.
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        cnty_str: name of county attribute in the dataframe
 
     Output:
-        min_entropy, scaled to be in (0,1) such that more similar parititions
-        yield a higher number'''
+        (number between 0 and 1): entropy such that similar partitions yield
+        a higher number.
+    """
+    # Get the population by county district intersection
+    df_inter = df.groupby([cnty_str, plan])[['pop']].sum()
+    df_inter = df_inter.reset_index()
+    df_inter = df_inter[df_inter['pop'] > 0]
 
-    # get counties
-    counties = set([key[0] for key in pops])
+    # Get the population per county
+    df_county = df.groupby([cnty_str])[['pop']].sum()
+    df_county = df_county.reset_index()
 
-    # compile lists to sum
-    county_entropies = []
-    for county in counties:
-        districts = [key for key in pops if key[0] == county]
-        county_size = sum([pops[key] for key in districts])
-        county_entropy = sum([pops[key] * np.log2(pops[key] / county_size)
-                              for key in districts])
-        county_entropies.append(county_entropy)
+    # rename county population and merge
+    df_county.columns = [cnty_str, 'county_pop']
+    df = df_inter.merge(df_county)
 
-    # calcuate conditional entropy, return reciprocal
-    c_entropy = (-1) * sum(county_entropies) / sum(pops.values())
-    return 1 / (1 + c_entropy)
+    # Calculate the district entropy
+    df['district_entropy'] = df['pop'] * np.log2(df['pop'] / df['county_pop'])
+
+    # calculate entropy
+    entropy = -1 * df['district_entropy'].sum() / df['pop'].sum()
+    entropy = 1 / (1 + entropy)
+    return entropy
+
+
+if __name__ == "__main__":
+    main()
