@@ -13,7 +13,8 @@ import os
 import pandas as pd
 import geopandas as gpd
 import seaborn as sns
-
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import pylab as pl
 #%%
 FIPS = {
     'WA': '53', 'DE': '10', 'WI': '55', 'WV': '54', 'HI': '15',
@@ -94,16 +95,69 @@ proportions = {county: good_pairs[county]/all_pairs[county] \
               for county in counties}
 
 df_to_merge = pd.DataFrame(list(proportions.items()), columns=['COUNTYFP10', 'PROP'])
-geo_df2 = geo_df.merge(df_to_merge, on='COUNTYFP10')
+geo_df2018 = geo_df.merge(df_to_merge, on='COUNTYFP10')
 
-
-
-#%%
+pops = dict2016
+counties = set([key[0] for key in pops])
     
-fig, ax = plt.subplots()
+intersect_pops = {county: [pops[key] for key in pops if key[0] == county] \
+                   for county in counties}
+
+good_pairs = {county: sum([i*(i-1)/2 for i in intersect_pops[county]]) \
+              for county in counties }
+
+county_pops = {county: sum([pops[key] for key in pops if key[0] == county]) \
+                   for county in counties}
+
+all_pairs = {county: county_pops[county]*(county_pops[county]-1)/2 \
+              for county in counties }
+
+proportions = {county: good_pairs[county]/all_pairs[county] \
+              for county in counties}
+
+df_to_merge = pd.DataFrame(list(proportions.items()), columns=['COUNTYFP10', 'PROP'])
+geo_df2016 = geo_df.merge(df_to_merge, on='COUNTYFP10')
+
+
+
+#%% 
+fig, ax = plt.subplots(figsize=(20, 20))
 ax.set_aspect('equal')
 
-geo_df2.plot(ax=ax, column='PROP', cmap='Greens', edgecolor='white', linewidth=1)
-districts2018.plot(ax=ax, color=[1,1,1,0], edgecolor='red', linewidth=1)
 
-plt.show();
+
+geo_df2018.plot(ax=ax, column='PROP', cmap='RdYlGn', edgecolor='white', linewidth=0.8)
+
+a = np.array([[0,1]])
+pl.figure(figsize=(9, 1.5))
+img = pl.imshow(a, cmap="RdYlGn")
+pl.gca().set_visible(False)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+pl.colorbar(cax=cax)
+
+
+districts2018.plot(ax=ax, color=[1,1,1,0], edgecolor='black', linewidth=1)
+
+fig.savefig('C:\\Users\\Jacob\\Documents\\GitHub\\county-splits\\Data\\Output\\PA2018.pdf', bbox='tight')
+
+#%%
+fig, ax = plt.subplots(figsize=(20, 20))
+ax.set_aspect('equal')
+
+
+
+geo_df2016.plot(ax=ax, column='PROP', cmap='RdYlGn', edgecolor='white', linewidth=0.8)
+
+a = np.array([[0,1]])
+pl.figure(figsize=(9, 1.5))
+img = pl.imshow(a, cmap="RdYlGn")
+pl.gca().set_visible(False)
+divider = make_axes_locatable(ax)
+cax = divider.append_axes("right", size="5%", pad=0.1)
+pl.colorbar(cax=cax)
+
+
+districts2016.plot(ax=ax, color=[1,1,1,0], edgecolor='black', linewidth=1)
+
+fig.savefig('C:\\Users\\Jacob\\Documents\\GitHub\\county-splits\\Data\\Output\\PA2016.pdf', bbox='tight')
