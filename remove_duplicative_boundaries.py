@@ -123,7 +123,7 @@ def is_same_geo_file(df1, df2, precision=0.01):
 
         # If the don't have the same number of geometries they aren't the same
         if len(geos1) != len(geos2):
-            return True
+            return False
 
         # Get the intersections between each of the geometries
         r = range(len(geos1))
