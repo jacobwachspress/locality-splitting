@@ -6,9 +6,9 @@ from download_census_data import state_fips
 
 
 def main():
-    """Calculate the seven different metrics
+    """Calculate the different metrics
 
-    Below are the names of the seven metrics. See docstrings below for more
+    Below are the names of the metrics. See docstrings below for more
     in-depth descriptions
 
         splits_all: counties_split using all blocks
@@ -18,6 +18,8 @@ def main():
         preserved_pairs: see function
         largest_intersection: see function
         min_entropy: see function
+        sqrt_entropy: see function
+        effective_splits: see function
 
     Return dataframe for each metric."""
     fips = state_fips()
@@ -59,7 +61,7 @@ def main():
 
 
 def calculate_all_metrics(df, state, plan, cnty_str='COUNTYFP10'):
-    """Calculate all seven metrics and return in a dictionary."""
+    """Calculate all metrics and return in a dictionary."""
     # Initialize dictionary with state and plan names
     d = {}
     d['state'] = state
@@ -78,6 +80,8 @@ def calculate_all_metrics(df, state, plan, cnty_str='COUNTYFP10'):
     d['preserved_pairs'] = preserved_pairs(df, plan, cnty_str)
     d['largest_intersection'] = largest_intersection(df, plan, cnty_str)
     d['min_entropy'] = minimum_entropy(df, plan, cnty_str)
+    d['sqrt_entropy'] = sqrt_entropy(df, plan, cnty_str)
+    d['effective_splits'] = effective_splits(df, plan, cnty_str)
 
     return d
 
@@ -255,6 +259,97 @@ def minimum_entropy(df, plan, cnty_str):
     entropy = -1 * df['district_entropy'].sum() / df['pop'].sum()
     entropy = 1 / (1 + entropy)
     return entropy
+
+
+def sqrt_entropy(df, plan, cnty_str):
+    """Calculate sqrt(entropy) metric used by Duchin in PA report.
+
+    Arguments:
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        cnty_str: name of county attribute in the dataframe
+
+    Output:
+        positive real number corresponding to sqrt(entropy) metric
+        (higher is more splitting)
+    """
+
+    # Get the population by county district intersection
+    df_inter = df.groupby([cnty_str, plan])[['pop']].sum()
+    df_inter = df_inter.reset_index()
+
+    # Get the population per county
+    df_county = df.groupby([cnty_str])[['pop']].sum()
+    df_county = df_county.reset_index()
+
+    # Get the population per district
+    df_district = df.groupby([plan])[['pop']].sum()
+    df_district = df_district.reset_index()
+
+    # Rename population columns and merge
+    df_county.columns = [cnty_str, 'county_pop']
+    df_district.columns = [plan, 'district_pop']
+    df_merged = df_inter.merge(df_county)
+    df_merged = df_merged.merge(df_district)
+
+    # Calculate sqrtEntropy(D|C)
+    cnty_sqrt_entropy = np.sqrt(df_merged['county_pop'] *
+                                df_merged['pop']).sum()
+    cnty_sqrt_entropy = cnty_sqrt_entropy / df_merged['pop'].sum()
+
+    # Calculate sqrtEntropy(C|D)
+    dist_sqrt_entropy = np.sqrt(df_merged['district_pop'] *
+                                df_merged['pop']).sum()
+    dist_sqrt_entropy = dist_sqrt_entropy / df_merged['pop'].sum()
+
+    return cnty_sqrt_entropy + dist_sqrt_entropy
+
+
+def county_effective_splits(series):
+    """ Helper function for effective_splits"""
+    return 1 / reduce(lambda x, y: x ** 2 + y ** 2, series) - 1
+
+
+def effective_splits(df, plan, cnty_str):
+    """Calculate effective splits metric used by Wang et. al. in COI paper.
+
+    Arguments:
+        df: dataframe containing classifications and populations for the
+            redistricting plan and county for every census block
+
+        plan: string that is the name of the redistricting plan
+              e.g. 'sldl_2010'
+
+        cnty_str: name of county attribute in the dataframe
+
+    Output:
+        positive real number corresponding to effective splits metric
+        (higher is more splitting)
+    """
+    # Get the population by county district intersection
+    df_inter = df.groupby([cnty_str, plan])[['pop']].sum()
+    df_inter = df_inter.reset_index()
+
+    # Get the population per county
+    df_county = df.groupby([cnty_str])[['pop']].sum()
+    df_county = df_county.reset_index()
+
+    # rename county population and merge
+    df_county.columns = [cnty_str, 'county_pop']
+    df_merged = df_inter.merge(df_county)
+    df_merged['prop'] = (df_merged['pop'] / df_merged['county_pop'])
+
+    # get effective splits of each county
+    df2 = df_merged.groupby('county').agg({'prop': county_effective_splits})
+    df2 = df2.reset_index().rename(columns={'prop': 'eff_splits'})
+    df_county = pd.merge(df_county, df2, on='county')
+
+    # return total effective splits, not population-weighted
+    return df_county['eff_splits'].sum()
 
 
 if __name__ == "__main__":
