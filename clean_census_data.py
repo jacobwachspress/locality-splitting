@@ -179,8 +179,6 @@ def split_congressional_districts(fips):
                 df_state = df_us[df_us[fips_col] == fips_code]
                 df_state.to_file(output)
 
-            break
-
     return
 
 
