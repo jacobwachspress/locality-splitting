@@ -15,27 +15,8 @@ PA_block_eq_df = pd.read_csv('clean_data/PA/PA_classifications.csv')
 PA_block_eq_df.head()
 ```
 
-    C:\Users\Jacob\AppData\Local\conda\conda\envs\gerry\lib\site-packages\IPython\core\interactiveshell.py:2785: DtypeWarning: Columns (2) have mixed types. Specify dtype option on import or set low_memory=False.
-      interactivity=interactivity, compiler=compiler, result=result)
-    
-
-
-
-
 <div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
 
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -161,23 +142,6 @@ df_county['county_fips'] = df_county['GEOID10'].astype(str).apply(lambda x: x[2:
 df_county.head()
 ```
 
-
-
-
-<div>
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
@@ -226,7 +190,6 @@ input_df = pd.merge(PA_block_eq_df, df_county, on='GEOID10')
 splitting_metrics = metrics.calculate_all_metrics(input_df, 'cd_2018', lclty_str='county_fips')
 splitting_metrics
 ```
-
 
 
 
