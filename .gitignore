@@ -1,8 +1,11 @@
 Data/*
 *.pyc
-*.csv
 *.ipynb
+*.csv
 *.zip
-clean_data/*
 extract_census/*
-raw_census.*
+raw_census/*
+/clean_data/*
+!/clean_data/PA
+/clean_data/PA/*
+!/clean_data/PA/PA_classifications.csv
