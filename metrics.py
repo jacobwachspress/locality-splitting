@@ -2,7 +2,6 @@
 import pandas as pd
 import numpy as np
 from fips_lookup import state_fips
-from functools import reduce
 
 
 def main():
@@ -55,291 +54,177 @@ def main():
 
     return
 
-def calculate_all_metrics(df, plan, state=None, lclty_str='COUNTYFP10'):
+
+def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_col='pop'):
     """Calculate all metrics and return in a dictionary."""
+
     # Initialize dictionary with state and plan names
     d = {}
 
     if state is not None:
         d['state'] = state
-    d['plan'] = plan
+    d['plan'] = plan_col
 
     # Calculate total number of localities split
-    d['splits_all'] = localities_split(df, plan, lclty_str, populated=False)
-    d['splits_pop'] = localities_split(df, plan, lclty_str)
+    d['splits_all'] = calculate_metric(df, lclty_col, plan_col, pop_col, localities_split, None,
+                                       populated=False)
+    d['splits_pop'] = calculate_metric(df, lclty_col, plan_col, pop_col, localities_split, None)
 
-    # Calcualte total number of locality district intersections
-    d['intersections_all'] = locality_intersections(df, plan, lclty_str,
-                                                    populated=False)
-    d['intersections_pop'] = locality_intersections(df, plan, lclty_str)
+    # Calculate total number of locality district intersections
+    d['intersections_all'] = calculate_metric(df, lclty_col, plan_col, pop_col, locality_intersections,
+                                              None, populated=False)
+    d['intersections_pop'] = calculate_metric(df, lclty_col, plan_col, pop_col, locality_intersections,
+                                              None)
 
-    # calculate population-based metrics
-    d['split_pairs'] = split_pairs(df, plan, lclty_str)
-    d['conditional_entropy'] = conditional_entropy(df, plan, lclty_str)
-    d['sqrt_entropy'] = sqrt_entropy(df, plan, lclty_str)
-    d['effective_splits'] = effective_splits(df, plan, lclty_str)
+    # Calculate population-based metrics
+    d['split_pairs'] = calculate_metric(df, lclty_col, plan_col, pop_col, split_pairs, 1)
+    d['conditional_entropy'] = calculate_metric(df, lclty_col, plan_col, pop_col, conditional_entropy, 1)
+    d['sqrt_entropy'] = calculate_metric(df, lclty_col, plan_col, pop_col, sqrt_entropy, 1)
+    d['effective_splits'] = calculate_metric(df, lclty_col, plan_col, pop_col, effective_splits, 1)
 
-    # calculate population-based metrics, symmetric version
-    d['split_pairs_sym'] = split_pairs(df, plan, lclty_str, symmetric=True)
-    d['conditional_entropy_sym'] = conditional_entropy(df, plan, lclty_str, symmetric=True)
-    d['sqrt_entropy_sym'] = sqrt_entropy(df, plan, lclty_str, symmetric=True)
-    d['effective_splits_sym'] = effective_splits(df, plan, lclty_str, symmetric=True)
+    # Calculate population-based metrics, symmetric version
+    split_pairs_score = calculate_metric(df, lclty_col, plan_col, pop_col, split_pairs, 1)
+    split_pairs_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, split_pairs, 1)
+    d['split_pairs_sym'] = (split_pairs_score + split_pairs_reversed) / 2
+    conditional_entropy_score = calculate_metric(df, lclty_col, plan_col, pop_col, conditional_entropy, 1)
+    conditional_entropy_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, conditional_entropy, 1)
+    d['conditional_entropy_sym'] = (conditional_entropy_score + conditional_entropy_reversed) / 2
+    sqrt_entropy_score = calculate_metric(df, lclty_col, plan_col, pop_col, sqrt_entropy, 1)
+    sqrt_entropy_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, sqrt_entropy, 1)
+    d['sqrt_entropy_sym'] = (sqrt_entropy_score + sqrt_entropy_reversed) / 2
+    effective_splits_score = calculate_metric(df, lclty_col, plan_col, pop_col, effective_splits, 1)
+    effective_splits_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, effective_splits, 1)
+    d['effective_splits_sym'] = (effective_splits_score + effective_splits_reversed) / 2
 
     return d
 
 
-def localities_split(df, plan, lclty_str='COUNTYFP10', populated=True):
-    """Calculate how many counties are split in a redistricting plan.
+def calculate_metric(df, lclty_col, plan_col, pop_col, metric_function, agg_exponent, populated=True):
+    """Calculates a locality splitting score for a redistricting plan.
 
     Arguments:
-        df: dataframe containing classifications and populations for the
+        df: DataFrame containing classifications and populations for the
             redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
+        lclty_col: name of locality attribute in the DataFrame
+        plan_col: string that is the name of the redistricting plan (e.g. 'sldl_2010'), must
+            be an attribute in the DataFrame
+        pop_col: name of population attribute in the DataFrame
+        metric_function: function for the metric of interest, pick from those defined below
+        agg_exponent: how to aggregate scores across multiple localities for a state (scores get aggregated
+            according to weights proportional to (population ^ agg_exponent). Pass None to just add up the
+            scores (slightly different from agg_exponent=0, which takes a mean).
         populated: whether to remove census blocks with zero population
 
-        lclty_str: name of locality attribute in the dataframe
-
     Output:
-        numeric of how many counties are split
+        numeric of splitting metric score
     """
-    # Remove blocks without population
+    # get populations of each (locality, district) pair
+    grouped = df.groupby([lclty_col, plan_col], as_index=False).agg({pop_col: sum})
+
+    # if restricting to populated intersections, get rid of the zero-population pairs
     if populated:
-        df = df[df['pop'] > 0]
+        grouped = grouped[grouped[pop_col] > 0]
 
-    # Drop duplicates between locality and plan
-    df = df[[lclty_str, plan]].drop_duplicates()
+    # calculate the population of each locality and the splitting metric for each locality
+    lclty_metrics = grouped.groupby([lclty_col], as_index=False)
+    lclty_metrics = lclty_metrics.agg({pop_col: [sum, metric_function]})
 
-    # Aggregate number of locality intersections
-    df = df.groupby(lclty_str).count()
+    # grab the columns for the metric and the locality population
+    metric_col = lclty_metrics.columns[-1]
+    lclty_pop_col = lclty_metrics.columns[-2]
 
-    # Get the number of counties that belong to more than one district
-    return len(df[df[plan] > 1])
+    # if we are aggregating the scores in some population-weighted way
+    if agg_exponent is not None:
 
+        # prepare the population weights for the scores of each locality
+        lclty_metrics[lclty_pop_col] = lclty_metrics[lclty_pop_col] / lclty_metrics[lclty_pop_col].sum()
+        lclty_metrics[lclty_pop_col] = lclty_metrics[lclty_pop_col] ** agg_exponent
+        lclty_metrics[lclty_pop_col] = lclty_metrics[lclty_pop_col] / lclty_metrics[lclty_pop_col].sum()
 
-def locality_intersections(df, plan, lclty_str, populated=True):
-    """Calculate the total number of locality district splits.
+        # get a weighted score across all localities
+        score = (lclty_metrics[lclty_pop_col] * lclty_metrics[metric_col]).sum()
 
-    Arguments:
-        df: dataframe containing classifications and populations for the
-            redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
-        populated: whether to remove census blocks with zero population
-
-        lclty_str: name of locality attribute in the dataframe
-
-    Output:
-        numeric of how many locality district splits exist
-    """
-    df = df.copy()
-
-    # Remove blocks without population
-    if populated:
-        df = df[df['pop'] > 0]
-
-    # Drop duplicates between locality and plan
-    df = df[[lclty_str, plan]].drop_duplicates()
-
-    # Aggregate number of locality intersections
-    df = df.groupby(lclty_str).count()
-
-    # Return how many intersections
-    return df[plan].sum() - len(df)
-
-
-def split_pairs(df, plan, lclty_str, symmetric=False):
-    """Calculate split pairs metric.
-
-    Arguments:
-        df: dataframe containing classifications and populations for the
-            redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
-        lclty_str: name of locality attribute in the dataframe
-
-    Output:
-        (number between 0 and 1): the probability that
-        two randomly chosen people from the same locality are not
-        in the same district.
-    """
-
-    if symmetric:
-
-        # calculate metric, swap locality and district, calculate again, sum
-        return split_pairs(df, plan, lclty_str, symmetric=False) + \
-               split_pairs(df, lclty_str, plan, symmetric=False)
-
+    # otherwise just add up the scores
     else:
-        # Get amount of population by locality district intersection
-        df_inter = df.groupby([lclty_str, plan])[['pop']].sum()
-        df_inter = df_inter.reset_index()
+        score = lclty_metrics[metric_col].sum()
 
-        # Get the population per locality
-        df_locality = df.groupby([lclty_str])[['pop']].sum()
-        df_locality = df_locality.reset_index()
-
-        # Get number of connections between people with the same locality & district
-        df_inter['connections'] = df_inter['pop'] * (df_inter['pop'] - 1) / 2
-        inter_connections = df_inter['connections'].sum()
-
-        # Get the number of connections between people with the same locality
-        df_locality['connections'] = df_locality['pop'] * (df_locality['pop'] - 1) / 2
-        locality_connections = df_locality['connections'].sum()
-
-        # Get the split pairs metric
-        return (locality_connections - inter_connections) / locality_connections
+    return score
 
 
-def effective_splits(df, plan, lclty_str, symmetric=False):
-    """Calculate effective splits metric used by Wang et. al. in COI paper.
+def localities_split(pops):
+    """Calculates localities split score for a single locality
+    from a pandas Series or numpy array of the populations of
+    all (locality, district) intersections."""
 
-    Arguments:
-        df: dataframe containing classifications and populations for the
-            redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
-        lclty_str: name of locality attribute in the dataframe
-
-    Output:
-        positive real number corresponding to effective splits metric
-        (higher is more splitting)
-    """
-
-    if symmetric:
-
-        # calculate metric, swap locality and district, calculate again, sum
-        return effective_splits(df, plan, lclty_str, symmetric=False) + \
-               effective_splits(df, lclty_str, plan, symmetric=False)
-
-    else:
-
-        # Get the population by locality district intersection
-        df_inter = df.groupby([lclty_str, plan])[['pop']].sum()
-        df_inter = df_inter.reset_index()
-
-        # Get the population per locality
-        df_locality = df.groupby([lclty_str])[['pop']].sum()
-        df_locality = df_locality.reset_index()
-
-        # rename locality population and merge
-        df_locality.columns = [lclty_str, 'lclty_pop']
-        df_merged = df_inter.merge(df_locality)
-        df_merged['prop'] = (df_merged['pop'] / df_merged['lclty_pop'])
-
-        # get effective splits of each locality
-        df2 = df_merged.groupby(lclty_str).agg({'prop': locality_effective_splits})
-        df2 = df2.reset_index().rename(columns={'prop': 'eff_splits'})
-        df_locality = pd.merge(df_locality, df2, on=lclty_str)
-
-        # return total effective splits, not population-weighted
-        return df_locality['eff_splits'].sum()
-
-def conditional_entropy(df, plan, lclty_str, symmetric=False):
-    """Calculate new minimum entropy metric.
-
-    Arguments:
-        df: dataframe containing classifications and populations for the
-            redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
-        lclty_str: name of locality attribute in the dataframe
-
-    Output:
-        (number between 0 and 1): entropy such that similar partitions yield
-        a higher number.
-    """
-
-    if symmetric:
-
-        # calculate metric, swap locality and district, calculate again, sum
-        return conditional_entropy(df, plan, lclty_str, symmetric=False) + \
-               conditional_entropy(df, lclty_str, plan, symmetric=False)
-
-    else:
-
-        # Get the population by locality district intersection
-        df_inter = df.groupby([lclty_str, plan])[['pop']].sum()
-        df_inter = df_inter.reset_index()
-        df_inter = df_inter[df_inter['pop'] > 0]
-
-        # Get the population per locality
-        df_locality = df.groupby([lclty_str])[['pop']].sum()
-        df_locality = df_locality.reset_index()
-
-        # rename locality population and merge
-        df_locality.columns = [lclty_str, 'lclty_pop']
-        df = df_inter.merge(df_locality)
-
-        # Calculate the district entropy
-        df['district_entropy'] = df['pop'] * np.log2(df['pop'] / df['lclty_pop'])
-
-        # calculate entropy
-        entropy = -1 * df['district_entropy'].sum() / df['pop'].sum()
-
-        return entropy
+    # return 1 if there are at least 2 parts of partition, else 0
+    return int(len(pops) > 1)
 
 
-def sqrt_entropy(df, plan, lclty_str, symmetric=False):
-    """Calculate sqrt(entropy) metric used by Duchin in PA report.
+def locality_intersections(pops):
+    """Calculates locality intersections score for a single locality from a pandas Series or numpy array of the
+    populations of all (locality, district) intersections."""
 
-    Arguments:
-        df: dataframe containing classifications and populations for the
-            redistricting plan and locality for every census block
-
-        plan: string that is the name of the redistricting plan
-              e.g. 'sldl_2010'
-
-        lclty_str: name of locality attribute in the dataframe
-
-    Output:
-        positive real number corresponding to sqrt(entropy) metric
-        (higher is more splitting)
-    """
-
-    if symmetric:
-
-        # calculate metric, swap locality and district, calculate again, sum
-        return sqrt_entropy(df, plan, lclty_str, symmetric=False) + \
-               sqrt_entropy(df, lclty_str, plan, symmetric=False)
-
-    else:
-
-        # Get the population by locality district intersection
-        df_inter = df.groupby([lclty_str, plan])[['pop']].sum()
-        df_inter = df_inter.reset_index()
-
-        # Get the population per locality
-        df_locality = df.groupby([lclty_str])[['pop']].sum()
-        df_locality = df_locality.reset_index()
-
-        # Rename population columns and merge
-        df_locality.columns = [lclty_str, 'lclty_pop']
-        df_merged = df_inter.merge(df_locality)
-
-        # Calculate sqrtEntropy
-        square_root_entropy = np.sqrt(df_merged['lclty_pop'] * df_merged['pop']).sum()
-        square_root_entropy = square_root_entropy / df_merged['pop'].sum()
-
-        return square_root_entropy
+    # return number of parts of partition
+    return len(pops)
 
 
-def locality_effective_splits(series):
-    """ Helper function for effective_splits"""
-    return 1 / reduce(lambda x, y: x ** 2 + y ** 2, series) - 1
+def split_pairs(pops):
+    """Calculates split pairs score for a single locality from a pandas Series or numpy array of the
+    populations of all (locality, district) intersections."""
+
+    # find total number of pairs of voters
+    all_pairs = pops.sum() * (pops.sum() - 1) / 2
+
+    # find number of pairs of voters in same district
+    preserved_pairs = (pops * (pops - 1)).sum() / 2
+
+    # return proportion of split pairs
+    return (all_pairs - preserved_pairs) / all_pairs
 
 
+def conditional_entropy(pops):
+    """Calculates conditional entropy score for a single locality from a pandas Series or numpy array of the
+    populations of all (locality, district) intersections."""
 
+    # get rid of zero population parts
+    pops = pops[pops > 0]
+
+    # find total number of people
+    total_population = pops.sum()
+
+    # find total entropy over all people
+    total_entropy = (pops * np.log2(total_population / pops)).sum()
+
+    # return entropy per person
+    return total_entropy / total_population
+
+
+def sqrt_entropy(pops):
+    """Calculates square root entropy score for a single locality from a pandas Series or numpy array of the
+    populations of all (locality, district) intersections."""
+
+    # get rid of zero population parts
+    pops = pops[pops > 0]
+
+    # find total number of people
+    total_population = pops.sum()
+
+    # find total square root entropy over all people
+    total_entropy = (pops * np.sqrt(total_population / pops)).sum()
+
+    # return entropy per person
+    return total_entropy / total_population
+
+
+def effective_splits(pops):
+    """Calculates effective splits score for a single locality from a pandas Series or numpy array of the
+    populations of all (locality, district) intersections."""
+
+    # turn populations into proportions
+    props = pops / pops.sum()
+
+    # return effective splits
+    return 1 / (props ** 2).sum() - 1
 
 
 if __name__ == "__main__":
