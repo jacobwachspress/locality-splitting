@@ -1,0 +1,11 @@
+message: "If you use locality-splitting in your research, please cite it using these metadata."
+authors:
+  - family-names: Wachspress
+    given-names: Jacob
+  - family-names: Moffatt
+    given-names: Connor
+  - family-names: Adler
+    given-names: Will
+title: Metrics of locality splitting in political districting
+version: 0.0.3
+license: "MIT"
