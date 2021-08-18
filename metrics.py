@@ -139,6 +139,10 @@ def split_pairs(pops):
     # find number of pairs of voters in same district
     preserved_pairs = (pops * (pops - 1)).sum() / 2
 
+    # if there are no pairs of people, return 1 (rare, un-impactful corner case)
+    if all_pairs == 0:
+        all_pairs = 1
+
     # return proportion of split pairs
     return (all_pairs - preserved_pairs) / all_pairs
 

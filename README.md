@@ -100,7 +100,7 @@ The required input is a pandas DataFrame with a row for each unit (usually censu
 If you read in this DataFrame as ``df`` and write the following python code:
 
 ```python 
-from locality_splits import metrics
+from locality_splitting import metrics
 
 metrics.calculate_all_metrics(df, 'cd_2018', lclty_col='county_fips')
 ```
