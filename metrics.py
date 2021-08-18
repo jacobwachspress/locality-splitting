@@ -1,11 +1,9 @@
 """Calculate various locality splitting metrics."""
-import pandas as pd
+
 import numpy as np
-from fips_lookup import state_fips
 
-
-def main():
-    """Calculate the different metrics for the counties
+def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_col='pop'):
+    """Calculate all metrics and return in a dictionary.
 
     Below are the names of the metrics. See docstrings below for more
     in-depth descriptions
@@ -19,44 +17,7 @@ def main():
         min_entropy: see function
         sqrt_entropy: see function
         effective_splits: see function
-
-    Return dataframe for each metric."""
-    fips = state_fips()
-
-    # Initialize splits dataframe
-    df_splits = pd.DataFrame()
-
-    # Iterate over each state
-    for state, fips_code in fips.items():
-
-        # Get relevant path
-        direc = 'clean_data/' + state + '/'
-        class_path = direc + state + '_classifications.csv'
-
-        # Load classifications and get counties from geoids
-        df = pd.read_csv(class_path)
-        df['GEOID10'] = df['GEOID10'].astype(str).str.zfill(15)
-        df['county'] = df['GEOID10'].apply(lambda x: x[2:5])
-
-        # Iterate through redistricting plans. Redistricting plans have
-        # underscore in name due to our naming convention
-        plans = [x for x in df.columns if '_' in x]
-        for plan in plans:
-            metrics = calculate_all_metrics(df, plan, state=state, lclty_str='county')
-            df_splits = df_splits.append(metrics, ignore_index=True)
-
-    # Sort
-    df_splits = df_splits.sort_values(by=['state', 'plan'])
-
-    # reorder columns and save splits
-    cols = ['state', 'plan'] + sorted([i for i in df_splits.columns if i not in ['state', 'plan']])
-    df_splits[cols].to_csv('splits_metrics.csv', index=False)
-
-    return
-
-
-def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_col='pop'):
-    """Calculate all metrics and return in a dictionary."""
+        """
 
     # Initialize dictionary with state and plan names
     d = {}
@@ -225,7 +186,3 @@ def effective_splits(pops):
 
     # return effective splits
     return 1 / (props ** 2).sum() - 1
-
-
-if __name__ == "__main__":
-    main()
