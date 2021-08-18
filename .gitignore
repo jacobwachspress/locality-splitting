@@ -5,4 +5,4 @@ Data/*
 *.zip
 *.xml
 *.iml
-
+clean_data/*
