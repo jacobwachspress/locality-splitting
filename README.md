@@ -1,11 +1,15 @@
+# Metrics of locality splitting in political districts
+[![PyPI version](https://badge.fury.io/py/locality-splitting.svg)](https://badge.fury.io/py/locality-splitting)
 
+
+## Installation
+If using pip, do `pip install locality-splitting`
 
 ```python
 import pandas as pd
 import metrics
 ```
 
-## Calculating metrics of locality splitting in political districts ##
 
 In order to calculate population-based splitting metrics, we need to know for every census block which district it is in. Much of this repository is devoted to generating this data in so-called "block equivalency files." Here is an example of such a data set.
 
