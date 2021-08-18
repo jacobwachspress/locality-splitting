@@ -1,214 +1,123 @@
+
 # Metrics of locality splitting in political districts
 [![PyPI version](https://badge.fury.io/py/locality-splitting.svg)](https://badge.fury.io/py/locality-splitting)
 
+## Description
+This repository contains [Python code](metrics.py) that implements a number of metrics for quantifying locality (e.g. county, community of interest) splitting in districting plans. The metrics implemented are:
+- Geography-based
+	- Number of localities split
+	- Number of locality-district intersections
+- Population-based
+	- Effective splits
+	- Conditional entropy
+	- Square root entropy
+	- Split pairs
+
+Options are provided to ignore zero-population regions and to calculate symmetric splitting scores.
 
 ## Installation
 If using pip, do `pip install locality-splitting`
 
-```python
-import pandas as pd
-import metrics
-```
-
-
-In order to calculate population-based splitting metrics, we need to know for every census block which district it is in. Much of this repository is devoted to generating this data in so-called "block equivalency files." Here is an example of such a data set.
-
-
-```python
-PA_block_eq_df = pd.read_csv('clean_data/PA/PA_classifications.csv')
-PA_block_eq_df.head()
-```
-
-<div>
+## Example use
+The required input is a pandas DataFrame with a row for each unit (usually census block or precinct) used to build the districts. The DataFrame must have a column denoting each unit's **population, district, and locality.** Here is an example of the input format, using ten random census blocks from Pennsylvania. The U.S. Census 
 
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
-      <th></th>
       <th>GEOID10</th>
       <th>pop</th>
-      <th>sldl_2000</th>
-      <th>cd_2013</th>
       <th>cd_2018</th>
-      <th>sldu_2000</th>
-      <th>sldl_2012</th>
-      <th>sldl_2018</th>
-      <th>cd_2003</th>
-      <th>cd_2010</th>
-      <th>sldu_2014</th>
-      <th>sldl_2010</th>
-      <th>sldl_2014</th>
-      <th>sldu_2010</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <th>0</th>
-      <td>420350307003003</td>
-      <td>57</td>
-      <td>076</td>
-      <td>5</td>
-      <td>12</td>
-      <td>34</td>
-      <td>76</td>
-      <td>76</td>
-      <td>5</td>
-      <td>5</td>
-      <td>25</td>
-      <td>76</td>
-      <td>76</td>
-      <td>35</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>420350302001056</td>
-      <td>0</td>
-      <td>076</td>
-      <td>5</td>
-      <td>12</td>
-      <td>34</td>
-      <td>76</td>
-      <td>76</td>
-      <td>5</td>
-      <td>5</td>
-      <td>25</td>
-      <td>76</td>
-      <td>76</td>
-      <td>35</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>420350301001322</td>
-      <td>0</td>
-      <td>076</td>
-      <td>5</td>
-      <td>12</td>
-      <td>34</td>
-      <td>76</td>
-      <td>76</td>
-      <td>5</td>
-      <td>5</td>
-      <td>25</td>
-      <td>76</td>
-      <td>76</td>
-      <td>35</td>
-    </tr>
-    <tr>
-      <th>3</th>
-      <td>420350301002207</td>
-      <td>0</td>
-      <td>076</td>
-      <td>5</td>
-      <td>12</td>
-      <td>34</td>
-      <td>76</td>
-      <td>76</td>
-      <td>5</td>
-      <td>5</td>
-      <td>25</td>
-      <td>76</td>
-      <td>76</td>
-      <td>35</td>
-    </tr>
-    <tr>
-      <th>4</th>
-      <td>420350301001013</td>
-      <td>0</td>
-      <td>076</td>
-      <td>5</td>
-      <td>12</td>
-      <td>34</td>
-      <td>76</td>
-      <td>76</td>
-      <td>5</td>
-      <td>5</td>
-      <td>25</td>
-      <td>76</td>
-      <td>76</td>
-      <td>35</td>
-    </tr>
-  </tbody>
-</table>
-</div>
-
-
-
-This DataFrame has one column for every plan in the state since 2000 (cd = congressional district, sldu = state legislative district upper, sldl = state legislative district lower). If a year is missing, it means the district plan provided to the Census Bureau was identical to the previous year. 
-
-Note that in many applications, generating the block equivalency files will not be necessary. For example, the Census Bureau published a national block equivalency file for congressional districts here https://www.census.gov/geographies/mapping-files/2019/dec/rdo/116-congressional-district-bef.html and state legislative districts here https://www.census.gov/geographies/mapping-files/2018/dec/rdo/2018-state-legislative-bef.html. Furthermore, states will often provide block equivalency files of proposed maps as part of the redistricting process. We wrote code for generating block equivalency files just so that we could score districting plans back to 2000.
-
-In order to determine locality splitting, we also need a block equivalency file of the localities. When the localities are counties, this is easy to generate.
-
-
-```python
-df_county = pd.DataFrame(PA_block_eq_df['GEOID10'])
-df_county['county_fips'] = df_county['GEOID10'].astype(str).apply(lambda x: x[2:5])
-df_county.head()
-```
-
-<table border="1" class="dataframe">
-  <thead>
-    <tr style="text-align: right;">
-      <th></th>
-      <th>GEOID10</th>
       <th>county_fips</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <th>0</th>
-      <td>420350307003003</td>
-      <td>035</td>
+      <td>420659503002020</td>
+      <td>39</td>
+      <td>15</td>
+      <td>065</td>
     </tr>
     <tr>
-      <th>1</th>
-      <td>420350302001056</td>
-      <td>035</td>
+      <td>420430241021027</td>
+      <td>24</td>
+      <td>10</td>
+      <td>043</td>
     </tr>
     <tr>
-      <th>2</th>
-      <td>420350301001322</td>
-      <td>035</td>
+      <td>421010280001004</td>
+      <td>216</td>
+      <td>3</td>
+      <td>101</td>
     </tr>
     <tr>
-      <th>3</th>
-      <td>420350301002207</td>
-      <td>035</td>
+      <td>420710120013011</td>
+      <td>58</td>
+      <td>11</td>
+      <td>071</td>
     </tr>
     <tr>
-      <th>4</th>
-      <td>420350301001013</td>
-      <td>035</td>
+      <td>420034572004011</td>
+      <td>20</td>
+      <td>18</td>
+      <td>003</td>
+    </tr>
+    <tr>
+      <td>420171047021022</td>
+      <td>56</td>
+      <td>1</td>
+      <td>017</td>
+    </tr>
+    <tr>
+      <td>420130109002021</td>
+      <td>25</td>
+      <td>13</td>
+      <td>013</td>
+    </tr>
+    <tr>
+      <td>420430248005010</td>
+      <td>42</td>
+      <td>10</td>
+      <td>043</td>
+    </tr>
+    <tr>
+      <td>420210122003037</td>
+      <td>51</td>
+      <td>15</td>
+      <td>021</td>
+    </tr>
+    <tr>
+      <td>420792122003018</td>
+      <td>15</td>
+      <td>8</td>
+      <td>079</td>
     </tr>
   </tbody>
 </table>
-</div>
 
+If you read in this DataFrame as ``df`` and write the following python code:
 
+```python 
+from locality_splits import metrics
 
-Once we merge up the block equivalency files, we can use a function from metrics.py to calculate a whole ensemble of locality splitting metrics for a plan. Remember that we need to have the populations of the census blocks in a column labeled "pop."
-
-
-```python
-input_df = pd.merge(PA_block_eq_df, df_county, on='GEOID10')
-splitting_metrics = metrics.calculate_all_metrics(input_df, 'cd_2018', lclty_str='county_fips')
-splitting_metrics
+metrics.calculate_all_metrics(df, 'cd_2018', lclty_col='county_fips')
 ```
 
-
-
-    {'plan': 'cd_2018',
-     'splits_all': 13,
-     'splits_pop': 13,
-     'intersections_all': 17,
-     'intersections_pop': 17,
-     'split_pairs': 0.35155708843835665,
-     'conditional_entropy': 0.4732218666363808,
-     'sqrt_entropy': 1.2259489228698355,
-     'effective_splits': 16.854108898754916,
-     'split_pairs_sym': 0.8315438136166731,
-     'conditional_entropy_sym': 1.9181791252873452,
-     'sqrt_entropy_sym': 3.095251349839012,
-     'effective_splits_sym': 1370.9984050936714}
+you will get an output like this:
+```python
+{'plan': 'cd_2018',
+'splits_all': 13,
+'splits_pop': 13,
+'intersections_all': 17,
+'intersections_pop': 17,
+'split_pairs': 0.35155708843835665,
+'conditional_entropy': 0.4732218666363808,
+'sqrt_entropy': 1.2259489228698355,
+'effective_splits': 16.854108898754916,
+'split_pairs_sym': 0.8315438136166731,
+'conditional_entropy_sym': 1.9181791252873452,
+'sqrt_entropy_sym': 3.095251349839012,
+'effective_splits_sym': 1370.9984050936714}
+```
+<div>
 
 
