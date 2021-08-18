@@ -1,4 +1,5 @@
 
+
 # Metrics of locality splitting in political districts
 [![PyPI version](https://badge.fury.io/py/locality-splitting.svg)](https://badge.fury.io/py/locality-splitting)
 
@@ -8,12 +9,14 @@ This repository contains [Python code](metrics.py) that implements a number of m
 	- Number of localities split
 	- Number of locality-district intersections
 - Population-based
-	- Effective splits
-	- Conditional entropy
-	- Square root entropy
-	- Split pairs
+	- Effective splits<sup>1</sup>
+	- Conditional entropy<sup>2</sup>
+	- Square root entropy<sup>3</sup>
+	- Split pairs<sup>4</sup>
 
 Options are provided to ignore zero-population regions and to calculate symmetric splitting scores.
+
+A description of the metrics (with formulas) can be found in this [working paper](metrics_description_working_paper.pdf).
 
 ## Installation
 If using pip, do `pip install locality-splitting`
@@ -119,5 +122,11 @@ you will get an output like this:
 'effective_splits_sym': 1370.9984050936714}
 ```
 <div>
+and can choose which metric(s) to use. The suffix "_all" means that zero-population regions are included, whereas "_pop" means they are ignored. (This distinction is only relevant for the geography-based metrics.) The suffix "_sym" indicates a symmetric splitting score.<sup>4</sup> 
 
 
+## References
+1. Samuel Wang, Sandra J. Chen, Richard Ober, Bernard Grofman, Kyle Barnes, and Jonathan Cervas. (2021). [Turning Communities Of Interest Into A Rigorous Standard For Fair Districting.](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3828800) _Stanford Journal of Civil Rights and Civil Liberties, Forthcoming_.
+2. Larry Guth, Ari Nieh, and Thomas Weighill. (2020). [Three Applications of Entropy to Gerrymandering.](https://arxiv.org/pdf/2010.14972.pdf) _arXiv_.
+3. Moon Duchin. (2018). [Outlier analysis for Pennsylvania congressional redistricting.](https://www.governor.pa.gov/wp-content/uploads/2018/02/md-report.pdf)
+4. Jacob Wachspress, Will Adler. (2021). [Metrics of locality splitting in political districts.](https://github.com/jacobwachspress/locality-splitting/blob/master/metrics_description_working_paper.pdf) _Working paper_.
