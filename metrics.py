@@ -19,6 +19,9 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
         effective_splits: see function
         """
 
+    # get populations of each (locality, district) pair
+    df = df.groupby([lclty_col, plan_col], as_index=False).agg({pop_col: sum})
+
     # Initialize dictionary with state and plan names
     d = {}
 
@@ -27,45 +30,44 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
     d['plan'] = plan_col
 
     # Calculate total number of localities split
-    d['splits_all'] = calculate_metric(df, lclty_col, plan_col, pop_col, localities_split, None,
+    d['splits_all'] = calculate_metric(df, lclty_col, pop_col, localities_split, None,
                                        populated=False)
-    d['splits_pop'] = calculate_metric(df, lclty_col, plan_col, pop_col, localities_split, None)
+    d['splits_pop'] = calculate_metric(df, lclty_col, pop_col, localities_split, None)
 
     # Calculate total number of locality district intersections
-    d['intersections_all'] = calculate_metric(df, lclty_col, plan_col, pop_col, locality_intersections,
+    d['intersections_all'] = calculate_metric(df, lclty_col, pop_col, locality_intersections,
                                               None, populated=False)
-    d['intersections_pop'] = calculate_metric(df, lclty_col, plan_col, pop_col, locality_intersections,
+    d['intersections_pop'] = calculate_metric(df, lclty_col, pop_col, locality_intersections,
                                               None)
 
     # Calculate population-based metrics
-    d['split_pairs'] = calculate_metric(df, lclty_col, plan_col, pop_col, split_pairs, 1)
-    d['conditional_entropy'] = calculate_metric(df, lclty_col, plan_col, pop_col, conditional_entropy, 1)
-    d['sqrt_entropy'] = calculate_metric(df, lclty_col, plan_col, pop_col, sqrt_entropy, 1)
-    d['effective_splits'] = calculate_metric(df, lclty_col, plan_col, pop_col, effective_splits, 1)
+    d['split_pairs'] = calculate_metric(df, lclty_col, pop_col, split_pairs, 1)
+    d['conditional_entropy'] = calculate_metric(df, lclty_col, pop_col, conditional_entropy, 1)
+    d['sqrt_entropy'] = calculate_metric(df, lclty_col, pop_col, sqrt_entropy, 1)
+    d['effective_splits'] = calculate_metric(df, lclty_col, pop_col, effective_splits, 1)
 
     # Calculate population-based metrics, symmetric version
-    split_pairs_score = calculate_metric(df, lclty_col, plan_col, pop_col, split_pairs, 1)
-    split_pairs_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, split_pairs, 1)
+    split_pairs_score = d['split_pairs']
+    split_pairs_reversed = calculate_metric(df, plan_col, pop_col, split_pairs, 1)
     d['split_pairs_sym'] = (split_pairs_score + split_pairs_reversed) / 2
-    conditional_entropy_score = calculate_metric(df, lclty_col, plan_col, pop_col, conditional_entropy, 1)
-    conditional_entropy_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, conditional_entropy, 1)
+    conditional_entropy_score = d['conditional_entropy']
+    conditional_entropy_reversed = calculate_metric(df, plan_col, pop_col, conditional_entropy, 1)
     d['conditional_entropy_sym'] = (conditional_entropy_score + conditional_entropy_reversed) / 2
-    sqrt_entropy_score = calculate_metric(df, lclty_col, plan_col, pop_col, sqrt_entropy, 1)
-    sqrt_entropy_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, sqrt_entropy, 1)
+    sqrt_entropy_score = d['sqrt_entropy']
+    sqrt_entropy_reversed = calculate_metric(df, plan_col, pop_col, sqrt_entropy, 1)
     d['sqrt_entropy_sym'] = (sqrt_entropy_score + sqrt_entropy_reversed) / 2
-    effective_splits_score = calculate_metric(df, lclty_col, plan_col, pop_col, effective_splits, 1)
-    effective_splits_reversed = calculate_metric(df, plan_col, lclty_col, pop_col, effective_splits, 1)
+    effective_splits_score = d['effective_splits']
+    effective_splits_reversed = calculate_metric(df, plan_col, pop_col, effective_splits, 1)
     d['effective_splits_sym'] = (effective_splits_score + effective_splits_reversed) / 2
 
     return d
 
 
-def calculate_metric(df, lclty_col, plan_col, pop_col, metric_function, agg_exponent, populated=True):
+def calculate_metric(df, lclty_col, pop_col, metric_function, agg_exponent, populated=True):
     """Calculates a locality splitting score for a redistricting plan.
 
     Arguments:
-        df: DataFrame containing classifications and populations for the
-            redistricting plan and locality for every census block
+        df: DataFrame containing a row for every (locality, district) pair and populations of each
         lclty_col: name of locality attribute in the DataFrame
         plan_col: string that is the name of the redistricting plan (e.g. 'sldl_2010'), must
             be an attribute in the DataFrame
@@ -79,15 +81,13 @@ def calculate_metric(df, lclty_col, plan_col, pop_col, metric_function, agg_expo
     Output:
         numeric of splitting metric score
     """
-    # get populations of each (locality, district) pair
-    grouped = df.groupby([lclty_col, plan_col], as_index=False).agg({pop_col: sum})
 
     # if restricting to populated intersections, get rid of the zero-population pairs
     if populated:
-        grouped = grouped[grouped[pop_col] > 0]
+        df = df[df[pop_col] > 0]
 
     # calculate the population of each locality and the splitting metric for each locality
-    lclty_metrics = grouped.groupby([lclty_col], as_index=False)
+    lclty_metrics = df.groupby([lclty_col], as_index=False)
     lclty_metrics = lclty_metrics.agg({pop_col: [sum, metric_function]})
 
     # grab the columns for the metric and the locality population
