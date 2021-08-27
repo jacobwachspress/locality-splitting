@@ -41,24 +41,25 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
                                               None)
 
     # Calculate population-based metrics
-    d['split_pairs'] = calculate_metric(df, lclty_col, pop_col, split_pairs, 1)
+    d['effective_splits'] = calculate_metric(df, lclty_col, pop_col, effective_splits, None)
     d['conditional_entropy'] = calculate_metric(df, lclty_col, pop_col, conditional_entropy, 1)
     d['sqrt_entropy'] = calculate_metric(df, lclty_col, pop_col, sqrt_entropy, 1)
-    d['effective_splits'] = calculate_metric(df, lclty_col, pop_col, effective_splits, 1)
+    d['split_pairs'] = calculate_metric(df, lclty_col, pop_col, split_pairs, 1)
+
 
     # Calculate population-based metrics, symmetric version
-    split_pairs_score = d['split_pairs']
-    split_pairs_reversed = calculate_metric(df, plan_col, pop_col, split_pairs, 1)
-    d['split_pairs_sym'] = (split_pairs_score + split_pairs_reversed) / 2
+    effective_splits_score = d['effective_splits']
+    effective_splits_reversed = calculate_metric(df, plan_col, pop_col, effective_splits, 1)
+    d['effective_splits_sym'] = (effective_splits_score + effective_splits_reversed) / 2
     conditional_entropy_score = d['conditional_entropy']
     conditional_entropy_reversed = calculate_metric(df, plan_col, pop_col, conditional_entropy, 1)
     d['conditional_entropy_sym'] = (conditional_entropy_score + conditional_entropy_reversed) / 2
     sqrt_entropy_score = d['sqrt_entropy']
     sqrt_entropy_reversed = calculate_metric(df, plan_col, pop_col, sqrt_entropy, 1)
     d['sqrt_entropy_sym'] = (sqrt_entropy_score + sqrt_entropy_reversed) / 2
-    effective_splits_score = d['effective_splits']
-    effective_splits_reversed = calculate_metric(df, plan_col, pop_col, effective_splits, 1)
-    d['effective_splits_sym'] = (effective_splits_score + effective_splits_reversed) / 2
+    split_pairs_score = d['split_pairs']
+    split_pairs_reversed = calculate_metric(df, plan_col, pop_col, split_pairs, 1)
+    d['split_pairs_sym'] = (split_pairs_score + split_pairs_reversed) / 2
 
     return d
 

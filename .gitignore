@@ -5,4 +5,11 @@ Data/*
 *.zip
 *.xml
 *.iml
+*.jpg
+*.png
+NC_test.pdf
+NC_test_2013.pdf
+NC_test_2016.pdf
 clean_data/*
+extract_census/*
+raw_census/*
