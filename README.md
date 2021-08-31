@@ -1,5 +1,6 @@
 
 
+
 # Metrics of locality splitting in political districts
 [![PyPI version](https://badge.fury.io/py/locality-splitting.svg)](https://badge.fury.io/py/locality-splitting)
 
@@ -22,104 +23,221 @@ A description of the metrics (with formulas) can be found in this [working paper
 If using pip, do `pip install locality-splitting`
 
 ## Example use
-The required input is a pandas DataFrame with a row for each unit (usually census block or precinct) used to build the districts. The DataFrame must have a column denoting each unit's **population, district, and locality.** Here is an example of the input format, using ten random census blocks from Pennsylvania. The U.S. Census 
+The required input is a pandas DataFrame with a row for each unit (usually census block or precinct) used to build the districts. The DataFrame must have a column denoting each unit's **population, district, and locality.** For U.S. Census provides a table with census blocks and their corresponding districts, called "block equivalency files." As a sample data set, we have downloaded this file for the Congressional districts used in 2018 and merged in the populations.
 
+```python 
+from locality_splitting import cd_2018
+df = cd_2018.get_block_equivalency_file()
+
+df.head(10)
+```
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
-      <th>GEOID10</th>
+      <th>GEOID</th>
       <th>pop</th>
       <th>cd_2018</th>
-      <th>county_fips</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>420659503002020</td>
-      <td>39</td>
-      <td>15</td>
-      <td>065</td>
+      <td>010010201001000</td>
+      <td>61</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420430241021027</td>
-      <td>24</td>
-      <td>10</td>
-      <td>043</td>
+      <td>010010201001001</td>
+      <td>0</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>421010280001004</td>
-      <td>216</td>
-      <td>3</td>
-      <td>101</td>
+      <td>010010201001002</td>
+      <td>0</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420710120013011</td>
-      <td>58</td>
-      <td>11</td>
-      <td>071</td>
+      <td>010010201001003</td>
+      <td>75</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420034572004011</td>
-      <td>20</td>
-      <td>18</td>
-      <td>003</td>
+      <td>010010201001004</td>
+      <td>0</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420171047021022</td>
-      <td>56</td>
+      <td>010010201001005</td>
       <td>1</td>
-      <td>017</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420130109002021</td>
-      <td>25</td>
-      <td>13</td>
-      <td>013</td>
+      <td>010010201001006</td>
+      <td>0</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420430248005010</td>
-      <td>42</td>
-      <td>10</td>
-      <td>043</td>
+      <td>010010201001007</td>
+      <td>23</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420210122003037</td>
-      <td>51</td>
-      <td>15</td>
-      <td>021</td>
+      <td>010010201001008</td>
+      <td>0</td>
+      <td>2</td>
     </tr>
     <tr>
-      <td>420792122003018</td>
-      <td>15</td>
-      <td>8</td>
-      <td>079</td>
+      <td>010010201001009</td>
+      <td>1</td>
+      <td>2</td>
     </tr>
   </tbody>
 </table>
+</div>
 
-If you read in this DataFrame as ``df`` and write the following python code:
+To calculate these metrics for county splitting, we need a column for the state and the county. Conveniently, the first two digits of the census block GEOID corresponds to the state FIPS code, and the next three digits correspond to the county FIPS code. State FIPS codes can be looked up [here](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/?cid=nrcs143_013696).
+
+```python 
+df['state'] = df['GEOID'].str[:2]
+df['county'] = df['GEOID'].str[2:5]
+PA_df = df[df['state'] == '42']
+
+PA_df.head(10)
+```
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>GEOID</th>
+      <th>pop</th>
+      <th>cd_2018</th>
+      <th>state</th>
+      <th>county</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>420010301011000</td>
+      <td>6</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011001</td>
+      <td>30</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011002</td>
+      <td>15</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011003</td>
+      <td>77</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011004</td>
+      <td>27</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011005</td>
+      <td>25</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011006</td>
+      <td>12</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011007</td>
+      <td>0</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011008</td>
+      <td>4</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+    <tr>
+      <td>420010301011009</td>
+      <td>62</td>
+      <td>13</td>
+      <td>42</td>
+      <td>001</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+Then if you write the following python code:
 
 ```python 
 from locality_splitting import metrics
 
-metrics.calculate_all_metrics(df, 'cd_2018', lclty_col='county_fips')
+metrics.calculate_all_metrics(PA_df, 'cd_2018', lclty_col='county')
 ```
-
 you will get an output like this:
 ```python
 {'plan': 'cd_2018',
- 'splits_all': 13,
+ 'splits_all': 14,
  'splits_pop': 13,
- 'intersections_all': 84,
+ 'intersections_all': 85,
  'intersections_pop': 84,
- 'split_pairs': 0.21116529723294755,
- 'conditional_entropy': 0.4732218666363808,
- 'sqrt_entropy': 1.2259489228698355,
- 'effective_splits': 0.4188383839280314,
- 'split_pairs_sym': 0.34622269134683015,
- 'conditional_entropy_sym': 0.9590895626436728,
- 'sqrt_entropy_sym': 1.5476256749195063,
- 'effective_splits_sym': 1.4607470558413187}
+ 'effective_splits': 10.160339912460943,
+ 'conditional_entropy': 0.47256386411416673,
+ 'sqrt_entropy': 1.22572584704072,
+ 'split_pairs': 0.9590673198811142,
+ 'effective_splits_sym': 6.340218676778926,
+ 'conditional_entropy_sym': 0.9622343161303942,
+ 'sqrt_entropy_sym': 1.5503698835379718,
+ 'split_pairs_sym': 0.9784915514182326}
 ```
 <div>
 and can choose which metric(s) to use. The suffix "_all" means that zero-population regions are included, whereas "_pop" means they are ignored. (This distinction is only relevant for the geography-based metrics.) The suffix "_sym" indicates a symmetric splitting score.<sup>4</sup> 
