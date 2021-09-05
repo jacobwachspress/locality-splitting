@@ -183,6 +183,12 @@ df_pop.head(10)
 </div>
 
 To calculate these metrics for county splitting, we need a column for the county. Conveniently, the first two digits of the census BLOCKID correspond to the state FIPS code, and the next three digits correspond to the county FIPS code. 
+
+```python
+df_pop['county'] = df_pop['BLOCKID'].str[2:5]
+df_pop.head(10)
+```
+
 <div>
 <table border="1" class="dataframe">
   <thead>
@@ -268,11 +274,6 @@ To calculate these metrics for county splitting, we need a column for the county
   </tbody>
 </table>
 </div>
-
-```python
-df_pop['county'] = df_pop['BLOCKID'].str[2:5]
-df_pop.head(10)
-```
 
 Then if you write the following python code:
 
