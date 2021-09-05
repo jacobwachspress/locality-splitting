@@ -23,11 +23,13 @@ A description of the metrics (with formulas) can be found in this [working paper
 If using pip, do `pip install locality-splitting`
 
 ## Example use
-The required input is a pandas DataFrame with a row for each unit (usually census block or precinct) used to build the districts. The DataFrame must have a column denoting each unit's **population, district, and locality.** For U.S. Census provides a table with census blocks and their corresponding districts, called "block equivalency files." As a sample data set, we have downloaded this file for the Congressional districts used in 2018 and merged in the populations.
+The required input is a pandas DataFrame with a row for each unit (usually census block or precinct) used to build the districts. The DataFrame must have a column denoting each unit's **population, district, and locality.** For U.S. Census provides a table with census blocks and their corresponding districts, called "block equivalency files." We have provided code to download block equivalency files from the U.S. Census website for the congressional and state legislative (upper and lower chamber) plans used in the 2012, 2014, 2016, and 2018 elections. 
 
 ```python 
-from locality_splitting import cd_2018
-df = cd_2018.get_block_equivalency_file()
+from locality_splitting import block_equivalency_file as bef
+year = 2018
+plan_type = 'cd'
+df = bef.get_block_equivalency_file(year, plan_type)
 
 df.head(10)
 ```
@@ -36,167 +38,248 @@ df.head(10)
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
-      <th>GEOID</th>
-      <th>pop</th>
+      <th></th>
+      <th>BLOCKID</th>
       <th>cd_2018</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>010010201001000</td>
-      <td>61</td>
-      <td>2</td>
+      <th>0</th>
+      <td>011290440001080</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001001</td>
-      <td>0</td>
-      <td>2</td>
+      <th>1</th>
+      <td>011290440001010</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001002</td>
-      <td>0</td>
-      <td>2</td>
+      <th>2</th>
+      <td>011290440001092</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001003</td>
-      <td>75</td>
-      <td>2</td>
+      <th>3</th>
+      <td>011290440001091</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001004</td>
-      <td>0</td>
-      <td>2</td>
+      <th>4</th>
+      <td>011290440001090</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001005</td>
-      <td>1</td>
-      <td>2</td>
+      <th>5</th>
+      <td>011290440001089</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001006</td>
-      <td>0</td>
-      <td>2</td>
+      <th>6</th>
+      <td>011290440001088</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001007</td>
-      <td>23</td>
-      <td>2</td>
+      <th>7</th>
+      <td>011290440001087</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001008</td>
-      <td>0</td>
-      <td>2</td>
+      <th>8</th>
+      <td>011290440001086</td>
+      <td>01</td>
     </tr>
     <tr>
-      <td>010010201001009</td>
-      <td>1</td>
-      <td>2</td>
+      <th>9</th>
+      <td>011290440001085</td>
+      <td>01</td>
     </tr>
   </tbody>
 </table>
 </div>
 
-To calculate these metrics for county splitting, we need a column for the state and the county. Conveniently, the first two digits of the census block GEOID corresponds to the state FIPS code, and the next three digits correspond to the county FIPS code. State FIPS codes can be looked up [here](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/?cid=nrcs143_013696).
+Next we have to pick a state and merge in populations from the census API. We will use Pennsylvania as an example, which has FIPS code 42. State FIPS codes can be looked up [here](https://www.nrcs.usda.gov/wps/portal/nrcs/detail/?cid=nrcs143_013696).
 
-```python 
-df['state'] = df['GEOID'].str[:2]
-df['county'] = df['GEOID'].str[2:5]
-PA_df = df[df['state'] == '42']
-
-PA_df.head(10)
+```python
+fips_code = '42'
+df_pop = bef.merge_state_census_block_pops(fips_code, df)
+df_pop.head(10)
 ```
+
 <div>
 
 <table border="1" class="dataframe">
   <thead>
     <tr style="text-align: right;">
-      <th>GEOID</th>
+      <th></th>
+      <th>BLOCKID</th>
       <th>pop</th>
       <th>cd_2018</th>
-      <th>state</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>420010301011000</td>
+      <td>6</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>420010301011001</td>
+      <td>30</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>420010301011002</td>
+      <td>15</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>420010301011003</td>
+      <td>77</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>420010301011004</td>
+      <td>27</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>420010301011005</td>
+      <td>25</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>6</th>
+      <td>420010301011006</td>
+      <td>12</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>420010301011007</td>
+      <td>0</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>8</th>
+      <td>420010301011008</td>
+      <td>4</td>
+      <td>13</td>
+    </tr>
+    <tr>
+      <th>9</th>
+      <td>420010301011009</td>
+      <td>62</td>
+      <td>13</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+To calculate these metrics for county splitting, we need a column for the county. Conveniently, the first two digits of the census BLOCKID correspond to the state FIPS code, and the next three digits correspond to the county FIPS code. 
+<div>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>BLOCKID</th>
+      <th>pop</th>
+      <th>cd_2018</th>
       <th>county</th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <th>0</th>
       <td>420010301011000</td>
       <td>6</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>1</th>
       <td>420010301011001</td>
       <td>30</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>2</th>
       <td>420010301011002</td>
       <td>15</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>3</th>
       <td>420010301011003</td>
       <td>77</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>4</th>
       <td>420010301011004</td>
       <td>27</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>5</th>
       <td>420010301011005</td>
       <td>25</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>6</th>
       <td>420010301011006</td>
       <td>12</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>7</th>
       <td>420010301011007</td>
       <td>0</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>8</th>
       <td>420010301011008</td>
       <td>4</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
     <tr>
+      <th>9</th>
       <td>420010301011009</td>
       <td>62</td>
       <td>13</td>
-      <td>42</td>
       <td>001</td>
     </tr>
   </tbody>
 </table>
 </div>
+
+```python
+df_pop['county'] = df_pop['BLOCKID'].str[2:5]
+df_pop.head(10)
+```
+
 Then if you write the following python code:
 
 ```python 
 from locality_splitting import metrics
 
-metrics.calculate_all_metrics(PA_df, 'cd_2018', lclty_col='county')
+metrics.calculate_all_metrics(df_pop, 'cd_2018', lclty_col='county')
 ```
 you will get an output like this:
 ```python
