@@ -1,6 +1,7 @@
 Data/*
 *.pyc
 *.ipynb
+!Distinguishability of metrics.ipynb
 *.csv
 *.zip
 *.xml
