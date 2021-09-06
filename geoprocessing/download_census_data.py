@@ -189,7 +189,7 @@ def extract_census_block_statistics(fips, census_key=False):
         for state, fips_code in fips.items():
             # Get the api query
             base = 'https://api.census.gov/data/2010/dec/sf1'
-            variables = '?get=H010001,GEO_ID'
+            variables = '?get=P001001,GEO_ID'
             level = '&for=block:*'
             hierarchy = '&in=state:' + fips_code + '&in=county:*&in=tract:*'
             query = base + variables + level + hierarchy
