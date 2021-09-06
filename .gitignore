@@ -10,6 +10,9 @@ Data/*
 NC_test.pdf
 NC_test_2013.pdf
 NC_test_2016.pdf
-clean_data/*
 extract_census/*
 raw_census/*
+clean_data/*
+!clean_data/[a-z][a-z]
+clean_data/[a-z][a-z]/*
+!clean_data/[a-z][a-z]/[a-z][a-z]_classifications.csv
