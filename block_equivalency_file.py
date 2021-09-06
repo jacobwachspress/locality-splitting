@@ -106,7 +106,7 @@ def merge_state_census_block_pops(state_fips, block_equiv_file):
     df = pd.DataFrame(data[1:], columns=data[0]).iloc[:, :2]
     df.columns = ['pop', 'BLOCKID']
     df = df[['BLOCKID', 'pop']]
-    df['pop'] = df['pop'].astype(int)
+    df['pop'] = df['pop'].astype(float)
     df['BLOCKID'] = df['BLOCKID'].apply(lambda x: x.split('S')[1])
 
     # merge populations and block equivalency file

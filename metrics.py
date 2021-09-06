@@ -2,6 +2,7 @@
 
 import numpy as np
 
+
 def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_col='pop'):
     """Calculate all metrics and return in a dictionary.
 
@@ -21,6 +22,9 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
 
     # get populations of each (locality, district) pair
     df = df.groupby([lclty_col, plan_col], as_index=False).agg({pop_col: sum})
+
+    # make pop_col a float because big ints introduce bugs
+    df[pop_col] = df[pop_col].astype(float)
 
     # Initialize dictionary with state and plan names
     d = {}
@@ -46,7 +50,6 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
     d['sqrt_entropy'] = calculate_metric(df, lclty_col, pop_col, sqrt_entropy, 1)
     d['split_pairs'] = calculate_metric(df, lclty_col, pop_col, split_pairs, 1)
 
-
     # Calculate population-based metrics, symmetric version
     effective_splits_score = d['effective_splits']
     effective_splits_reversed = calculate_metric(df, plan_col, pop_col, effective_splits, 1)
@@ -70,8 +73,6 @@ def calculate_metric(df, lclty_col, pop_col, metric_function, agg_exponent, popu
     Arguments:
         df: DataFrame containing a row for every (locality, district) pair and populations of each
         lclty_col: name of locality attribute in the DataFrame
-        plan_col: string that is the name of the redistricting plan (e.g. 'sldl_2010'), must
-            be an attribute in the DataFrame
         pop_col: name of population attribute in the DataFrame
         metric_function: function for the metric of interest, pick from those defined below
         agg_exponent: how to aggregate scores across multiple localities for a state (scores get aggregated
@@ -133,6 +134,9 @@ def locality_intersections(pops):
 def split_pairs(pops):
     """Calculates split pairs score for a single locality from a pandas Series or numpy array of the
     populations of all (locality, district) intersections."""
+
+    # make float because big ints ruin stuff
+    pops = pops.astype(float)
 
     # find total number of pairs of voters
     all_pairs = pops.sum() * (pops.sum() - 1) / 2

@@ -285,18 +285,18 @@ metrics.calculate_all_metrics(df_pop, 'cd_2018', lclty_col='county')
 you will get an output like this:
 ```python
 {'plan': 'cd_2018',
- 'splits_all': 14,
- 'splits_pop': 13,
- 'intersections_all': 85,
- 'intersections_pop': 84,
+ 'splits_all': 14.0,
+ 'splits_pop': 13.0,
+ 'intersections_all': 85.0,
+ 'intersections_pop': 84.0,
  'effective_splits': 10.160339912460943,
  'conditional_entropy': 0.47256386411416673,
  'sqrt_entropy': 1.22572584704072,
- 'split_pairs': 0.9590673198811142,
- 'effective_splits_sym': 6.340218676778926,
+ 'split_pairs': 0.21090396242846743,
+ 'effective_splits_sym': 6.3402186767789255,
  'conditional_entropy_sym': 0.9622343161303942,
- 'sqrt_entropy_sym': 1.5503698835379718,
- 'split_pairs_sym': 0.9784915514182326}
+ 'sqrt_entropy_sym': 1.5503698835379716,
+ 'split_pairs_sym': 0.34663230810650736}
 ```
 <div>
 and can choose which metric(s) to use. The suffix "_all" means that zero-population regions are included, whereas "_pop" means they are ignored. (This distinction is only relevant for the geography-based metrics.) The suffix "_sym" indicates a symmetric splitting score.<sup>4</sup> 
