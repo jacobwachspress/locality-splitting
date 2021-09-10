@@ -3,10 +3,13 @@ import requests
 from io import BytesIO
 from zipfile import ZipFile
 
+import math
 
 def congress(election_year):
     """ Return the number of the Congress (e.g. 115th) corresponding to the election year."""
     return int(election_year / 2 - 893)
+    """ Return the number of the Congress (e.g., 115th) corresponding to the election year (e.g., 2016)."""
+    return math.floor(election_year / 2) - 893
 
 
 def get_url(year, plan_type):
