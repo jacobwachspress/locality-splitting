@@ -42,9 +42,10 @@ def get_url(year, plan_type):
     else:
 
         # get url
-        suffix = year
         if year == 2012:
             suffix = 'post2010'
+        else:
+            suffix = year
         url = f'{path}/{year}/{year}-state-legislative-bef/{plan_type}_{suffix}.zip'
 
     return url
