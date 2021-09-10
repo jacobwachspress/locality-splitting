@@ -2,12 +2,10 @@ import pandas as pd
 import requests
 from io import BytesIO
 from zipfile import ZipFile
-
 import math
+import us
 
 def congress(election_year):
-    """ Return the number of the Congress (e.g. 115th) corresponding to the election year."""
-    return int(election_year / 2 - 893)
     """ Return the number of the Congress (e.g., 115th) corresponding to the election year (e.g., 2016)."""
     return math.floor(election_year / 2) - 893
 
@@ -83,18 +81,23 @@ def get_block_equivalency_file(year, plan_type):
     return df
 
 
-def merge_state_census_block_pops(state_fips, block_equiv_file):
+def merge_state_census_block_pops(state, block_equiv_file):
     """ Merge populations into a block equivalency file
 
     Arguments:
-        state_fips: two-digit string corresponding to state fips code
+        state: state name, abbreviation, or FIPS code
         block_equiv_file: pandas DataFrame outputted by get_block_equivalency_file()
             with a BLOCKID column and a column for the district
     Output: block_equiv_file sliced down to the given state, with a population column added
     """
 
-    # clean FIPS code to make robust to user input decision
-    fips_code = str(state_fips).zfill(2)
+    # get FIPS code
+    if not isinstance(state, str): # if user appears to provide a FIPS code, make sure it's properly formatted
+        state = str(state).zfill(2)
+    try:
+        fips_code = us.states.lookup(state).fips
+    except AttributeError:
+        raise ValueError("Invalid state name provided.")
 
     # get census API query
     base = 'https://api.census.gov/data/2010/dec/sf1'
