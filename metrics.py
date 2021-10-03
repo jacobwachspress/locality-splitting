@@ -50,6 +50,14 @@ def calculate_all_metrics(df, plan_col, state=None, lclty_col='COUNTYFP10', pop_
     d['sqrt_entropy'] = calculate_metric(df, lclty_col, pop_col, sqrt_entropy, 1)
     d['split_pairs'] = calculate_metric(df, lclty_col, pop_col, split_pairs, 1)
 
+    # Calculate geography-based metrics, symmetric version
+    splits_pop_score = d['splits_pop']
+    splits_pop_reversed = calculate_metric(df, plan_col, pop_col, localities_split, None)
+    d['splits_pop_sym'] = (splits_pop_score + splits_pop_reversed) / 2
+    intersections_pop_score = d['intersections_pop']
+    intersections_pop_reversed = calculate_metric(df, plan_col, pop_col, locality_intersections, None)
+    d['intersections_pop_sym'] = (intersections_pop_score + intersections_pop_reversed) / 2
+
     # Calculate population-based metrics, symmetric version
     effective_splits_score = d['effective_splits']
     effective_splits_reversed = calculate_metric(df, plan_col, pop_col, effective_splits, 1)

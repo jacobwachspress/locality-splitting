@@ -1,7 +1,7 @@
 Data/*
 *.pyc
 *.ipynb
-!Distinguishability of metrics.ipynb
+!splitting_metric_comparisons.ipynb
 *.csv
 *.zip
 *.xml
