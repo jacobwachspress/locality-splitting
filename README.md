@@ -293,6 +293,8 @@ you will get an output like this:
  'conditional_entropy': 0.47256386411416673,
  'sqrt_entropy': 1.22572584704072,
  'split_pairs': 0.21090396242846743,
+ 'splits_pop_sym': 14.0,
+ 'intersections_pop_sym': 84.0,
  'effective_splits_sym': 6.3402186767789255,
  'conditional_entropy_sym': 0.9622343161303942,
  'sqrt_entropy_sym': 1.5503698835379716,
