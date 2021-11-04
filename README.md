@@ -17,7 +17,7 @@ This repository contains [Python code](metrics.py) that implements a number of m
 
 Options are provided to ignore zero-population regions and to calculate symmetric splitting scores.
 
-A description of the metrics (with formulas) can be found in this [working paper](metrics_description_working_paper.pdf).
+A description of the metrics (with formulas) can be found in this [whitepaper](https://cdt.org/wp-content/uploads/2021/11/2021-11-04-Locality-splitting-report-final.pdf).
 
 ## Installation
 If using pip, do `pip install locality-splitting`
