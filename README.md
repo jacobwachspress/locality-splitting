@@ -1,10 +1,12 @@
-
-
-
-# Metrics of locality splitting in political districts
+# Metrics of locality splitting/preservation in district maps
 [![PyPI version](https://badge.fury.io/py/locality-splitting.svg)](https://badge.fury.io/py/locality-splitting)
 
 ## Description
+
+[<img src="https://cdt.org/wp-content/uploads/2021/11/2021-11-03-Locality-splitting-cover-191x1-social-media-2500x-2048x1073.png" width=50% align="center" />](https://cdt.org/insights/report-split-decisions-guidance-for-measuring-locality-preservation-in-district-maps/)
+
+This code accompanies the [Center for Democracy & Technology](https://cdt.org/) report, [Split Decisions: Guidance for Measuring Locality Preservation in District Maps](https://cdt.org/insights/report-split-decisions-guidance-for-measuring-locality-preservation-in-district-maps/), by [Jacob Wachspress](https://github.com/jacobwachspress) and [William T. Adler](https://wtadler.com/).
+
 This repository contains [Python code](metrics.py) that implements a number of metrics for quantifying locality (e.g. county, community of interest) splitting in districting plans. The metrics implemented are:
 - Geography-based
 	- Number of localities split
@@ -17,7 +19,7 @@ This repository contains [Python code](metrics.py) that implements a number of m
 
 Options are provided to ignore zero-population regions and to calculate symmetric splitting scores.
 
-A description of the metrics (with formulas) can be found in this [whitepaper](https://cdt.org/wp-content/uploads/2021/11/2021-11-04-Locality-splitting-report-final.pdf).
+A description of the metrics (with formulas) can be found in the report, linked above.
 
 ## Installation
 If using pip, do `pip install locality-splitting`
